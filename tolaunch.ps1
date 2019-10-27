@@ -1,0 +1,1 @@
+$x=[nodeutility]::ParseFile("$PWD\plop.ps1")
