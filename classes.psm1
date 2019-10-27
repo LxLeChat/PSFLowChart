@@ -21,11 +21,13 @@ class nodeutility {
                     $x+=$t
 
                     If ( $t.Type -eq "If" ) {
+                    $LinkedNodeEndIf = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$t.Nodeid)
+                    $LinkedList.AddLast($LinkedNodeEndIf)
                         If ( $t.raw.Clauses.Count -ge 1 ) {
                             for( $i=1; $i -lt $t.raw.Clauses.Count ; $i++ ) {
                                     $node = [ElseIfNode]::new($t.raw.clauses[$i].Item1,$t.Statement)
-                                    $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.nodeId)
-                                    $LinkedList.AddLast($LinkedNode)
+                                    $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.nodeId)                                    
+                                    $LinkedList.AddBefore($LinkedNodeEndIf,$LinkedNode)
                                     $node.LinkedBrothers = $LinkedList
                                     $node.LinkeddNodeId = $LinkedNode
                                     $x += $node
@@ -35,7 +37,7 @@ class nodeutility {
                         If ( $null -ne $t.raw.ElseClause ) {
                             $node = [ElseNode]::new($t.raw.ElseClause,$t.Statement)
                             $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.nodeId)
-                            $LinkedList.AddLast($LinkedNode)
+                            $LinkedList.AddBefore($LinkedNodeEndIf,$LinkedNode)
                             $node.LinkedBrothers = $LinkedList
                             $node.LinkeddNodeId = $LinkedNode
                             $x += $node
@@ -165,11 +167,13 @@ class node {
                 $this.Children.add($node)
 
                 If ( $node.Type -eq "If" ) {
+                    $LinkedNodeEndIf = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
+                    $LinkedList.AddLast($LinkedNodeEndIf)
                     If ( $node.raw.Clauses.Count -ge 1 ) {
                         for( $i=1; $i -lt $node.raw.Clauses.Count ; $i++ ) {
                                 $nodeElseIf = [ElseIfNode]::new($node.raw.clauses[$i].Item1,$node.Statement)
                                 $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($nodeElseIf.nodeId)
-                                $LinkedList.AddLast($LinkedNode)
+                                $LinkedList.AddBefore($LinkedNodeEndIf,$LinkedNode)
                                 $nodeElseIf.LinkedBrothers = $LinkedList
                                 $nodeElseIf.LinkeddNodeId = $LinkedNode
                                 $this.Children.add($nodeElseIf)
@@ -179,7 +183,7 @@ class node {
                     If ( $null -ne $node.raw.ElseClause ) {
                         $nodeElse = [ElseNode]::new($node.raw.ElseClause,$node.Statement)
                         $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($nodeElse.nodeId)
-                        $LinkedList.AddLast($LinkedNode)
+                        $LinkedList.AddBefore($LinkedNodeEndIf,$LinkedNode)
                         $nodeElse.LinkedBrothers = $LinkedList
                         $nodeElse.LinkeddNodeId = $LinkedNode
                         $this.Children.add($nodeElse)
