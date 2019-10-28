@@ -43,9 +43,6 @@ class nodeutility {
                             $x += $node
                         }
                     }
-
-                    
-                    
                 }
             }
         }
@@ -165,12 +162,12 @@ class node {
                 $node.LinkedNodeId = $LinkedNode
                 $this.Children.add($node)
 
-                If ( $node.Type -eq "If" ) {
+                If ( ($node.Type -eq "If") -and ($node.Depth -eq 2)  ) {
                     $LinkedNodeEndIf = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
                     $LinkedList.AddLast($LinkedNodeEndIf)
                     If ( $node.raw.Clauses.Count -ge 1 ) {
                         for( $i=1; $i -lt $node.raw.Clauses.Count ; $i++ ) {
-                                $nodeElseIf = [ElseIfNode]::new($node.raw.clauses[$i].Item1,$node.Statement)
+                                $nodeElseIf = [ElseIfNode]::new($node.raw.clauses[$i].Item1,$node,$node.Statement)
                                 $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($nodeElseIf.nodeId)
                                 $LinkedList.AddBefore($LinkedNodeEndIf,$LinkedNode)
                                 $nodeElseIf.LinkedBrothers = $LinkedList
@@ -180,7 +177,7 @@ class node {
                     }
 
                     If ( $null -ne $node.raw.ElseClause ) {
-                        $nodeElse = [ElseNode]::new($node.raw.ElseClause,$node.Statement)
+                        $nodeElse = [ElseNode]::new($node.raw.ElseClause,$node,$node.Statement)
                         $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($nodeElse.nodeId)
                         $LinkedList.AddBefore($LinkedNodeEndIf,$LinkedNode)
                         $nodeElse.LinkedBrothers = $LinkedList
@@ -262,11 +259,7 @@ class node {
         If ( $null -eq $this.parent ) {
             $this.Depth = 1
         } Else {
-            If ( $this.type -in ("ElseNode","ElseIfNode","SwitchCaseNode") ) {
-                $this.Depth = $this.Parent.depth
-            } Else {
-                $this.Depth = $this.Parent.Depth + 1
-            }
+            $this.Depth = $this.Parent.Depth + 1
         }
 
     }
@@ -308,12 +301,18 @@ Class IfNode : node {
     }
 
     [string] graph () {
+        $TopEndIf=''
         $string = "node "+$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
         $string = $string+";node End_"+$this.Nodeid+" -attributes @{Label='End "+$this.Statement+"'}"
         $string = $string +";Edge -from "+$this.NodeId+" -to "+$This.LinkedNodeId.Next.Value+" -attributes @{Label='False'}"
+
+
         If ( $this.Children.count -gt 0 ) {
             $string = $string +";Edge -from "+$this.NodeId+" -to "+$This.Children[0].NodeId+" -attributes @{Label='True'}"
-            #$string = $string +";Edge -from "+$This.Children[-1].NodeId+" -to End_"+$This.NodeId
+            If ( ($null -ne $this.Parent) -and ($this.Parent.Type -eq  "If") ) {
+                $TopEndIf = "End_"+$this.parent.nodeId
+                $string = $string +";Edge -from "+$This.Children[-1].NodeId+" -to "+$TopEndIf
+            }
         }
 
         return $string
@@ -345,6 +344,11 @@ Class ElseNode : node {
             $string = $string +";node Process_"+$this.nodeId+" -attributes @{Label='Process'}"
             $string = $string +";Edge -from "+$this.NodeId+" -to Process_"+$this.nodeId+" -attributes @{Label='True'}"
             $string = $string +";Edge -from Process_"+$this.nodeId+" -to "+$This.LinkedNodeId.Next.Value
+        }
+
+        If ( ($null -ne $this.Parent) -and ($this.Parent.Type -eq  "If") ) {
+            $TopEndIf = "End_"+$this.parent.nodeId
+            $string = $string +";Edge -from "+$This.LinkedNodeId.Next.Value+" -to "+$TopEndIf
         }
 
         return $string
