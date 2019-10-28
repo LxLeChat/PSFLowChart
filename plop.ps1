@@ -1,6 +1,6 @@
 if ( $a-eq 1) {
     "ahaha"
-    If ( $b -eq 'b'){
+    If ( $b -eq "b"){
         "bahahaha"
         foreach($a in $b) {
             bahahahah
@@ -12,8 +12,4 @@ if ( $a-eq 1) {
     "bbbbb"
 } else {
     "ccccc"
-}
-
-foreach ( $c in $d ) {
-    "hhhhhhh"
 }
