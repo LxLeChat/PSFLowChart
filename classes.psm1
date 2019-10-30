@@ -12,7 +12,7 @@ class nodeutility {
             if ( $null -eq $CurrentRawAst.parent.parent.parent ) {
                 $t = [nodeutility]::SetNode($CurrentRawAst)
                 if ( $null -ne  $t) {
-                    #$t
+                    Write-Verbose "NIVEAU 1: $($t.Statement)"
                     $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($t.Nodeid)
                     $LinkedList.AddLast($LinkedNode)
                     $t.LinkedBrothers = $LinkedList
@@ -26,6 +26,7 @@ class nodeutility {
                         If ( $t.raw.Clauses.Count -ge 1 ) {
                             for( $i=1; $i -lt $t.raw.Clauses.Count ; $i++ ) {
                                     $node = [ElseIfNode]::new($t.raw.clauses[$i].Item1,$t.Statement)
+                                    Write-Verbose "NIVEAU 1: $($node.Statement)"
                                     $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.nodeId)                                    
                                     $LinkedList.AddBefore($LinkedNodeEndIf,$LinkedNode)
                                     $node.LinkedBrothers = $LinkedList
@@ -163,11 +164,12 @@ class node {
                 $this.Children.add($node)
 
                 If ( ($node.Type -eq "If") -and ($node.Depth -eq 2)  ) {
+                    write-verbose "find-children $($node.Statement)"
                     $LinkedNodeEndIf = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
                     $LinkedList.AddLast($LinkedNodeEndIf)
                     If ( $node.raw.Clauses.Count -ge 1 ) {
                         for( $i=1; $i -lt $node.raw.Clauses.Count ; $i++ ) {
-                                $nodeElseIf = [ElseIfNode]::new($node.raw.clauses[$i].Item1,$node,$node.Statement)
+                                $nodeElseIf = [ElseIfNode]::new($node.raw.clauses[$i].Item1,$this,$node.Statement)
                                 $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($nodeElseIf.nodeId)
                                 $LinkedList.AddBefore($LinkedNodeEndIf,$LinkedNode)
                                 $nodeElseIf.LinkedBrothers = $LinkedList
@@ -177,7 +179,7 @@ class node {
                     }
 
                     If ( $null -ne $node.raw.ElseClause ) {
-                        $nodeElse = [ElseNode]::new($node.raw.ElseClause,$node,$node.Statement)
+                        $nodeElse = [ElseNode]::new($node.raw.ElseClause,$this,$node.Statement)
                         $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($nodeElse.nodeId)
                         $LinkedList.AddBefore($LinkedNodeEndIf,$LinkedNode)
                         $nodeElse.LinkedBrothers = $LinkedList
@@ -280,7 +282,7 @@ Class IfNode : node {
             $this.Statement = "If ( {0} )" -f $this.raw.Clauses[0].Item1.Extent.Text
             $this.Code = $this.raw.Clauses[0].Item2.Extent.Text
         }
-
+        Write-Verbose $this.Statement
         $this.FindChildren($this.raw.Clauses[0].Item2.Statements,$this)
 
     }
@@ -309,9 +311,12 @@ Class IfNode : node {
 
         If ( $this.Children.count -gt 0 ) {
             $string = $string +";Edge -from "+$this.NodeId+" -to "+$This.Children[0].NodeId+" -attributes @{Label='True'}"
-            If ( ($null -ne $this.Parent) -and ($this.Parent.Type -eq  "If") ) {
+            If ( ($null -ne $this.Parent) -and ($this.Parent -is [IfNode]) ) {
                 $TopEndIf = "End_"+$this.parent.nodeId
+                Write-Verbose $TopEndIf
                 $string = $string +";Edge -from "+$This.Children[-1].NodeId+" -to "+$TopEndIf
+            } else {
+                Write-Verbose "PUTAIN on est pas passé ici ...$($this.Statement)"
             }
         }
 
@@ -346,8 +351,9 @@ Class ElseNode : node {
             $string = $string +";Edge -from Process_"+$this.nodeId+" -to "+$This.LinkedNodeId.Next.Value
         }
 
-        If ( ($null -ne $this.Parent) -and ($this.Parent.Type -eq  "If") ) {
+        If ( ($null -ne $this.Parent) -and ($this.Parent -is [IfNode]) ) {
             $TopEndIf = "End_"+$this.parent.nodeId
+            Write-Verbose "On est ici: $TopEndIf"
             $string = $string +";Edge -from "+$This.LinkedNodeId.Next.Value+" -to "+$TopEndIf
         }
 
