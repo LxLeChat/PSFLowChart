@@ -8,7 +8,7 @@ class nodeutility {
         $LinkedList = [System.Collections.Generic.LinkedList[string]]::new()
         $x=@()
         $RawAstDocument | ForEach-Object{
-            $CurrentRawAst = $_
+            $CurrentRawAst = $PSItem
             if ( $null -eq $CurrentRawAst.parent.parent.parent ) {
                 $t = [nodeutility]::SetNode($CurrentRawAst)
                 if ( $null -ne  $t) {
@@ -312,9 +312,7 @@ Class IfNode : node {
         If ( $this.Children.count -gt 0 ) {
             $string = $string +";Edge -from "+$this.NodeId+" -to "+$This.Children[0].NodeId+" -attributes @{Label='True'}"
             If ( ($null -ne $this.Parent) -and ($this.Parent -is [IfNode]) ) {
-                $TopEndIf = "End_"+$this.parent.nodeId
-                Write-Verbose $TopEndIf
-                $string = $string +";Edge -from "+$This.Children[-1].NodeId+" -to "+$TopEndIf
+                $string = $string +";Edge -from "+$This.Children[-1].NodeId+" -to End_"+$this.Nodeid
             } else {
                 Write-Verbose "PUTAIN on est pas passé ici ...$($this.Statement)"
             }
@@ -347,7 +345,7 @@ Class ElseNode : node {
             $string = $string +";Edge -from "+$This.Children[-1].NodeId+" -to "+$This.LinkedNodeId.Next.Value
         } Else {
             $string = $string +";node Process_"+$this.nodeId+" -attributes @{Label='Process'}"
-            $string = $string +";Edge -from "+$this.NodeId+" -to Process_"+$this.nodeId+" -attributes @{Label='True'}"
+            $string = $string +";Edge -from "+$this.NodeId+" -to Process_"+$this.nodeId
             $string = $string +";Edge -from Process_"+$this.nodeId+" -to "+$This.LinkedNodeId.Next.Value
         }
 
@@ -372,7 +370,7 @@ Class ElseIfNode : node {
         $this.FindChildren($this.raw.Parent.Clauses.where({$_.item1.extent.text -eq $this.raw.extent.text}).item2.Statements,$this)
     }
 
-    ElseIfNode ([Ast]$e,[node]$j,[string]$d,[Ast]$f) : base ($e,$j) {
+    ElseIfNode ([Ast]$e,[node]$j,[string]$d) : base ($e,$j) {
         $this.Statement = "ElseIf ( {0} ) From {1}" -f $e.Extent.Text,$d
         $item1ToSearch = $this.raw.extent.text
         $this.Code = ($this.raw.Parent.Clauses.where({$_.Item1.extent.text -eq $item1ToSearch})).Item2.Extent.Text
@@ -456,6 +454,7 @@ Class ForeachNode : node {
     [String]$Type = "Foreach"
 
     ForeachNode ([Ast]$e) : base ($e) {
+        Write-Verbose "FORECH"
         $this.Statement = "Foreach ( "+ $e.Variable.extent.Text +" in " + $e.Condition.extent.Text + " )"
         $this.code = $e.body.Extent.Text
         $this.FindChildren($this.raw.Body.Statements,$this)
@@ -465,6 +464,22 @@ Class ForeachNode : node {
         $this.Statement = "Foreach ( "+ $e.Variable.extent.Text +" in " + $e.Condition.extent.Text + " )"
         $this.code = $e.body.extent.Text
         $this.FindChildren($this.raw.Body.Statements,$this)
+    }
+
+    [string] graph () {
+        $string = ""
+        $string = "node "+$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
+        $string = $string+";node Next_"+$this.Nodeid+" -attributes @{Label='Next "+$this.raw.Condition+"'}"
+        $string = $string +";Edge -from Next_"+$this.Nodeid+" -to "+$this.nodeId+" -attributes @{Label='Loop'}"
+        If ( $this.Children.count -gt 0 ) {
+            $string = $string +";Edge -from "+$this.NodeId+" -to "+$this.Children[0].NodeId
+            $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to Next_"+$this.Nodeid
+        } else {
+            $string = $string +";node Process_"+$this.nodeId+" -attributes @{Label='Process'}"
+            $string = $string +";Edge -from "+$this.NodeId+" -to Process_"+$this.nodeId
+            $string = $string +";Edge -from Process_"+$this.nodeId+" -to Next_"+$this.Nodeid
+        }
+        return $string
     }
 }
 
