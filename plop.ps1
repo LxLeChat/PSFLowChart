@@ -4,7 +4,7 @@ Foreach ($plop in $plopu) {
         If ( $b -eq "b"){
             "bahahaha"
             foreach($a in $b) {
-                bahahahah
+                "bahahahah"
             }
         } Else {
             "prout"

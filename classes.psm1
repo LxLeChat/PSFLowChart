@@ -27,7 +27,7 @@ class nodeutility {
                             for( $i=1; $i -lt $t.raw.Clauses.Count ; $i++ ) {
                                     $node = [ElseIfNode]::new($t.raw.clauses[$i].Item1,$t.Statement)
                                     Write-Verbose "NIVEAU 1: $($node.Statement)"
-                                    $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.nodeId)                                    
+                                    $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.nodeId)
                                     $LinkedList.AddBefore($LinkedNodeEndIf,$LinkedNode)
                                     $node.LinkedBrothers = $LinkedList
                                     $node.LinkedNodeId = $LinkedNode
@@ -163,7 +163,9 @@ class node {
                 $node.LinkedNodeId = $LinkedNode
                 $this.Children.add($node)
 
-                If ( ($node.Type -eq "If") -and ($node.Depth -eq 2)  ) {
+                ##du coup niveau 3 il ajoute pas le endif ... !!!!!
+                #If ( ($node.Type -eq "If") -and ($node.Depth -eq 2)  ) {
+                If ( ($node.Type -eq "If")  ) {
                     write-verbose "find-children $($node.Statement)"
                     $LinkedNodeEndIf = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
                     $LinkedList.AddLast($LinkedNodeEndIf)
@@ -306,13 +308,17 @@ Class IfNode : node {
         $TopEndIf=''
         $string = "node "+$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
         $string = $string+";node End_"+$this.Nodeid+" -attributes @{Label='End "+$this.Statement+"'}"
+        write-verbose $(";Edge -from "+$this.NodeId+" -to "+$This.LinkedNodeId.Next.Value+" -attributes @{Label='False'}")
         $string = $string +";Edge -from "+$this.NodeId+" -to "+$This.LinkedNodeId.Next.Value+" -attributes @{Label='False'}"
+        
 
 
         If ( $this.Children.count -gt 0 ) {
             $string = $string +";Edge -from "+$this.NodeId+" -to "+$This.Children[0].NodeId+" -attributes @{Label='True'}"
+            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
             If ( ($null -ne $this.Parent) -and ($this.Parent -is [IfNode]) ) {
-                $string = $string +";Edge -from "+$This.Children[-1].NodeId+" -to End_"+$this.Nodeid
+                #$string = $string +";Edge -from "+$This.Children[-1].NodeId+" -to End_"+$this.Nodeid
+                $string = $string +";Edge -from "+$This.Children[0].LinkedBrothers.Last.Value+" -to End_"+$this.Nodeid
             } else {
                 Write-Verbose "PUTAIN on est pas passé ici ...$($this.Statement)"
             }
@@ -342,7 +348,9 @@ Class ElseNode : node {
         $string = "node "+$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
         If ( $this.Children.count -gt 0 ) {
             $string = $string +";Edge -from "+$this.NodeId+" -to "+$This.Children[0].NodeId
-            $string = $string +";Edge -from "+$This.Children[-1].NodeId+" -to "+$This.LinkedNodeId.Next.Value
+            #$string = $string +";Edge -from "+$This.Children[-1].NodeId+" -to "+$This.LinkedNodeId.Next.Value
+            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
+            $string = $string +";Edge -from "+$This.Children[0].LinkedBrothers.Last.Value+" -to "+$This.LinkedNodeId.Next.Value
         } Else {
             $string = $string +";node Process_"+$this.nodeId+" -attributes @{Label='Process'}"
             $string = $string +";Edge -from "+$this.NodeId+" -to Process_"+$this.nodeId
@@ -382,7 +390,9 @@ Class ElseIfNode : node {
         $string = "node "+$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
         $string = $string +";Edge -from "+$this.NodeId+" -to "+$This.LinkedNodeId.Next.Value+" -attributes @{Label='False'}"
         If ( $this.Children.count -gt 0 ) {
+            #$string = $string +";Edge -from "+$this.NodeId+" -to "+$This.Children[0].NodeId+" -attributes @{Label='True'}"
             $string = $string +";Edge -from "+$this.NodeId+" -to "+$This.Children[0].NodeId+" -attributes @{Label='True'}"
+            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
         } Else {
             $string = $string +";node Process_"+$this.nodeId+" -attributes @{Label='Process'}"
             $string = $string +";Edge -from "+$this.NodeId+" -to Process_"+$this.nodeId+" -attributes @{Label='True'}"
@@ -473,6 +483,8 @@ Class ForeachNode : node {
         $string = $string +";Edge -from Next_"+$this.Nodeid+" -to "+$this.nodeId+" -attributes @{Label='Loop'}"
         If ( $this.Children.count -gt 0 ) {
             $string = $string +";Edge -from "+$this.NodeId+" -to "+$this.Children[0].NodeId
+            #$this.Children.Foreach({$string = $string + ";" + $_.Graph()})
+            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
             $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to Next_"+$this.Nodeid
         } else {
             $string = $string +";node Process_"+$this.nodeId+" -attributes @{Label='Process'}"
