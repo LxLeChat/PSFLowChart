@@ -14,5 +14,8 @@ Foreach ($plop in $plopu) {
     } else {
         "ccccc"
     }
-    
+
+    while ( $i -lt 10 ) {
+        "plop"
+    }
 }

@@ -191,16 +191,6 @@ class node {
                 }
             }
         }
-
-        <## si il n y a pas d'enfant on ajotue un process block
-        If ( $this.Children.Count -eq 0 ) {
-            $node = [BlockProcess]::new()
-            $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
-            $LinkedList.AddLast($LinkedNode)
-            $node.LinkedNodeId = $LinkedNode
-            $this.Children.add($node)
-        }
-        #>
     }
 
 
@@ -284,18 +274,13 @@ Class IfNode : node {
             $this.Statement = "If ( {0} )" -f $this.raw.Clauses[0].Item1.Extent.Text
             $this.Code = $this.raw.Clauses[0].Item2.Extent.Text
         }
-        Write-Verbose $this.Statement
         $this.FindChildren($this.raw.Clauses[0].Item2.Statements,$this)
 
     }
 
     IfNode ([Ast]$e,[node]$f) : base ($e,$f) {
 
-        write-verbose $this.raw.Clauses[0].Item1.Extent.Text
-
         If ( $this.raw.Clauses.Count -gt 0 ) {
-            Write-Verbose "OKAY"
-            write-verbose $this.raw.Clauses[0].Item1.Extent.Text
             $this.Statement = "If ( {0} )" -f $this.raw.Clauses[0].Item1.Extent.Text
             $this.Code = $this.raw.Clauses[0].Item2.Extent.Text
         }
@@ -305,7 +290,7 @@ Class IfNode : node {
     }
 
     [string] graph () {
-        $TopEndIf=''
+        #$TopEndIf=''
         $string = "node "+$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
         $string = $string+";node End_"+$this.Nodeid+" -attributes @{Label='End "+$this.Statement+"'}"
         write-verbose $(";Edge -from "+$this.NodeId+" -to "+$This.LinkedNodeId.Next.Value+" -attributes @{Label='False'}")
@@ -322,6 +307,15 @@ Class IfNode : node {
             } else {
                 Write-Verbose "PUTAIN on est pas passé ici ...$($this.Statement)"
             }
+        }
+
+        $endNode = $this.LinkedBrothers.find("End_"+$this.Nodeid)
+        If ( $null -ne $endNode.Next ) {
+            write-verbose "Graph: If: `$null -ne `$EndNode.Next"
+            $string = $string +";Edge -from "+$EndNode.Value+" -to "+$endNode.Next.Value
+        } elseif ( $this.Depth -gt 1 ) {
+            #write-verbose "Graph: While: `$this.Depth -gt 1"
+            #$string = $string +";Edge -from Loop_"+$this.Nodeid+" -to "+$this.parent.LinkedBrothers.last.value+" -attributes @{Label='False, Continue'}"
         }
 
         return $string
@@ -510,6 +504,34 @@ Class WhileNode : node {
         $this.code = $e.body.extent.Text
         $this.FindChildren($this.raw.Body.Statements,$this)
         
+    }
+
+    [string] graph () {
+        $string = ""
+        $string = "node "+$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
+        $string = $string+";node Loop_"+$this.Nodeid+" -attributes @{Label='If "+$this.Statement+" is True'}"
+        $string = $string +";Edge -from Loop_"+$this.Nodeid+" -to "+$this.nodeId+" -attributes @{Label='True, Loop'}"
+
+        If ( $null -ne $this.LinkedBrothers.Next) {
+            write-verbose "Graph: While: `$null -ne `$this.LinkedBrothers.Next"
+            $string = $string +";Edge -from Loop_"+$this.Nodeid+" -to "+$this.LinkedBrothers.Next+" -attributes @{Label='False, Continue'}"
+        } elseif ( $this.Depth -gt 1 ) {
+            write-verbose "Graph: While: `$this.Depth -gt 1"
+            $string = $string +";Edge -from Loop_"+$this.Nodeid+" -to "+$this.parent.LinkedBrothers.last.value+" -attributes @{Label='False, Continue'}"
+        }
+
+        If ( $this.Children.count -gt 0 ) {
+            write-verbose "Graph: While: `$this.Children.count -gt 0"
+            $string = $string +";Edge -from "+$this.NodeId+" -to "+$this.Children[0].NodeId
+            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
+            $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to Loop_"+$this.Nodeid
+        } else {
+            write-verbose "Graph: While: `$this.Children.count < 0"
+            $string = $string +";node Process_"+$this.nodeId+" -attributes @{Label='Process'}"
+            $string = $string +";Edge -from "+$this.NodeId+" -to Process_"+$this.nodeId
+            $string = $string +";Edge -from Process_"+$this.nodeId+" -to Loop_"+$this.Nodeid
+        }
+        return $string
     }
 }
 
