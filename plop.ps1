@@ -1,21 +1,29 @@
-Foreach ($plop in $plopu) {
-    if ( $a-eq 1) {
-        "ahaha"
-        If ( $b -eq "b"){
-            "bahahaha"
-            foreach($a in $b) {
-                "bahahahah"
-            }
-        } Else {
-            "prout"
+If ( $b ) {
+    foreach ( $plop in $b) {
+        if ( $a-eq 1) {
+            "ahaha"
         }
-    } ElseIf ( $a -eq 2) {
-        "bbbbb"
-    } else {
-        "ccccc"
-    }
+    
+        If ( $a -eq 2) {
+            "caca"
+        } else {
+            "BAAAAAAAAAAH"
+        }
+    
+        foreach ( $caca in $prout ) {
+            "cacaprout"
+            if ( $caca ) {
+                "rien"
+            } elseif ($prout) {
+                foreach ( $plop in $plip ) {
+                    "cacca"
+                }
+            }
+        }
+            
+        }
+}
 
-    while ( $i -lt 10 ) {
-        "plop"
-    }
+If ( $a ) {
+    "baaaa"
 }
