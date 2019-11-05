@@ -20,6 +20,10 @@ If ( $b ) {
                 }
             }
         }
+
+        while ( $i -lt 10 ){
+            "ahahah"
+        }
             
         }
 }

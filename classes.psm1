@@ -341,9 +341,16 @@ Class IfNode : node {
         $string = "node "+$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
         $string = $string+";node "+$this.EndNodeid+" -attributes @{Label='End "+$this.Statement+"'}"
 
-        ## si on a pas de previous node, et niveau 0
-        If ( ($this.Depth -eq 0) -And ($null -eq $this.LinkedNodeId.Previous) ) {
+        ## si on a pas de previous node, et niveau 1
+        If ( ($this.Depth -eq 1) -And ($null -eq $this.LinkedNodeId.Previous) ) {
+            write-Verbose "Graph: If: Drawing START NODE"
             $string = $string +";Edge -from START -to "+$this.NodeId        
+        }
+
+        ## si on a pas de next node, et niveau 1
+        If ( ($this.Depth -eq 1) -And ($null -eq $EndIfNode.Next) ) {
+            write-Verbose "Graph: If: Drawing END NODE"
+            $string = $string +";Edge -from "+$this.EndNodeid+" -to END"
         }
 
         If ( $null -ne $This.LinkedNodeId.Next) {
@@ -505,14 +512,24 @@ Class ForeachNode : node {
 
     [string] graph () {
 
+        ## On stocke le noeud de fin
+        $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
+
         ## Noeud et edge de base
         $string = "node "+$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
         $string = $string+";node "+$this.EndNodeid+" -attributes @{Label='Next "+$this.raw.Condition+"'}"
         $string = $string +";Edge -from "+$this.EndNodeid+" -to "+$this.nodeId+" -attributes @{Label='Loop'}"
 
-        ## si on a pas de previous node, et niveau 0
-        If ( ($this.Depth -eq 0) -And ($null -eq $this.LinkedNodeId.Previous) ) {
+        ## si on a pas de previous node, et niveau 1
+        If ( ($this.Depth -eq 1) -And ($null -eq $this.LinkedNodeId.Previous) ) {
+            write-Verbose "Graph: Foreach: Drawing START NODE"
             $string = $string +";Edge -from START -to "+$this.NodeId        
+        }
+
+        ## si on a pas de next node, et niveau 1
+        If ( ($this.Depth -eq 1) -And ($null -eq $EndIfNode.Next) ) {
+            write-Verbose "Graph: Foreach: Drawing END NODE"
+            $string = $string +";Edge -from "+$this.EndNodeid+" -to END"
         }
         
         If ( $this.Children.count -gt 0 ) {
@@ -520,6 +537,12 @@ Class ForeachNode : node {
             foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
             $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid
         }
+
+        If ( $null -ne $EndIfNode.Next ) {
+            Write-Verbose "Graph: If: there is a node after the EndIf"
+            $string = $string+ ";Edge -from "+$this.EndnodeId+" -to "+$EndIfNode.Next.Value
+        }
+
         return $string
     }
 }
@@ -541,33 +564,42 @@ Class WhileNode : node {
         
     }
 
-    # [string] graph () {
-    #     $string = ""
-    #     $string = "node "+$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
-    #     $string = $string+";node Loop_"+$this.Nodeid+" -attributes @{Label='If "+$this.Statement+" is True'}"
-    #     $string = $string +";Edge -from Loop_"+$this.Nodeid+" -to "+$this.nodeId+" -attributes @{Label='True, Loop'}"
+    [string] graph () {
 
-    #     If ( $null -ne $this.LinkedBrothers.Next) {
-    #         write-verbose "Graph: While: `$null -ne `$this.LinkedBrothers.Next"
-    #         $string = $string +";Edge -from Loop_"+$this.Nodeid+" -to "+$this.LinkedBrothers.Next+" -attributes @{Label='False, Continue'}"
-    #     } elseif ( $this.Depth -gt 1 ) {
-    #         write-verbose "Graph: While: `$this.Depth -gt 1"
-    #         $string = $string +";Edge -from Loop_"+$this.Nodeid+" -to "+$this.parent.LinkedBrothers.last.value+" -attributes @{Label='False, Continue'}"
-    #     }
+        ## On stocke le noeud de fin
+        $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
 
-    #     If ( $this.Children.count -gt 0 ) {
-    #         write-verbose "Graph: While: `$this.Children.count -gt 0"
-    #         $string = $string +";Edge -from "+$this.NodeId+" -to "+$this.Children[0].NodeId
-    #         foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
-    #         $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to Loop_"+$this.Nodeid
-    #     } else {
-    #         write-verbose "Graph: While: `$this.Children.count < 0"
-    #         $string = $string +";node Process_"+$this.nodeId+" -attributes @{Label='Process'}"
-    #         $string = $string +";Edge -from "+$this.NodeId+" -to Process_"+$this.nodeId
-    #         $string = $string +";Edge -from Process_"+$this.nodeId+" -to Loop_"+$this.Nodeid
-    #     }
-    #     return $string
-    # }
+        ## on cree les bases
+        $string = "node "+$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
+        $string = $string+";node "+$this.EndNodeid+" -attributes @{Label='If "+$this.raw.Condition+"'}"
+        $string = $string +";Edge -from "+$this.EndNodeid+" -to "+$this.nodeId+" -attributes @{Label='True, Loop'}"
+
+        ## si on a pas de previous node, et niveau 0
+        If ( ($this.Depth -eq 1) -And ($null -eq $this.LinkedNodeId.Previous) ) {
+            write-Verbose "Graph: While: Drawing START NODE"
+            $string = $string +";Edge -from START -to "+$this.NodeId        
+        }
+
+        ## si on a pas de next node, et niveau 1
+        If ( ($this.Depth -eq 1) -And ($null -eq $EndIfNode.Next) ) {
+            write-Verbose "Graph: While: Drawing END NODE"
+            $string = $string +";Edge -from "+$this.EndNodeid+" -to END"
+        }
+
+        If ( $this.Children.count -gt 0 ) {
+            Write-Verbose "Graph: While: Graph while children"
+            $string = $string +";Edge -from "+$this.NodeId+" -to "+$this.Children[0].NodeId
+            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
+            $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid
+        }
+
+        If ( $null -ne $EndIfNode.Next ) {
+            Write-Verbose "Graph: If: there is a node after the EndIf"
+            $string = $string+ ";Edge -from "+$this.EndnodeId+" -to "+$EndIfNode.Next.Value
+        }
+
+        return $string
+    }
 }
 
 Class ForNode : node {
