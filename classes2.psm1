@@ -410,6 +410,20 @@ Class ElseIfNode : node {
 
         }
 
+        # $string = "node "+$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
+        # $string = $string +";Edge -from "+$this.NodeId+" -to "+$This.LinkedNodeId.Next.Value+" -attributes @{Label='False'}"
+        # If ( $this.Children.count -gt 0 ) {
+        #     #$string = $string +";Edge -from "+$this.NodeId+" -to "+$This.Children[0].NodeId+" -attributes @{Label='True'}"
+        #     $string = $string +";Edge -from "+$this.NodeId+" -to "+$This.Children[0].NodeId+" -attributes @{Label='True'}"
+        #     foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
+        # } Else {
+        #     $string = $string +";node Process_"+$this.nodeId+" -attributes @{Label='Process'}"
+        #     $string = $string +";Edge -from "+$this.NodeId+" -to Process_"+$this.nodeId+" -attributes @{Label='True'}"
+
+        #                 $string = $string +";Edge -from Process_"+$this.nodeId+" -to "+$EndIf
+        # }
+
+
         return $string
     }
 
@@ -630,3 +644,5 @@ Class BlockProcess : node {
         return $string
     }
 }
+
+#$x=[nodeutility]::ParseFile("$PWD\plop.ps1")
