@@ -529,6 +529,8 @@ Class SwitchCaseNode : node {
 
         $item1ToSearch = $this.raw.Value
         $this.Code = ($this.raw.Parent.Clauses.where({$_.Item1.Value -eq $item1ToSearch})).Item2.Extent.Text
+
+        $this.FindChildren($f.Statements,$this)
     }
 
 }
