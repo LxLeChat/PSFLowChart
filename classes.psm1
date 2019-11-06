@@ -68,6 +68,11 @@ class nodeutility {
                         $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$t.Nodeid)
                         $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
                     }
+
+                    If ( $t.type -eq "DoUntil") {
+                        $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$t.Nodeid)
+                        $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
+                    }
                 }
             }
         }
@@ -166,7 +171,7 @@ class node {
         $this.Guid()
         $this.DefaultShape = [nodeutility]::SetDefaultShape($this.Type)
 
-        If ( $this.Type -in ("If","Foreach","While","For","DoWhile") ) {
+        If ( $this.Type -in ("If","Foreach","While","For","DoWhile","DoUntil") ) {
             $this.EndNodeid = "End_"+$this.Nodeid
         }
     }
@@ -179,7 +184,7 @@ class node {
         $this.Guid()
         $this.DefaultShape = [nodeutility]::SetDefaultShape($this.Type)
 
-        If ( $this.Type -in ("If","Foreach","While","For","DoWhile") ) {
+        If ( $this.Type -in ("If","Foreach","While","For","DoWhile","DoUntil") ) {
             $this.EndNodeid = "End_"+$this.Nodeid
         }
     }
@@ -244,6 +249,11 @@ class node {
                 }
 
                 If ( $node.type -eq "DoWhile") {
+                    $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
+                    $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
+                }
+
+                If ( $node.type -eq "DoUntil") {
                     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
                     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
                 }
@@ -390,7 +400,7 @@ Class IfNode : node {
             ## On trace le edge entre le dernier enfant et le endif
             If ( $this.Children[-1].LinkedNodeId.next ) {
                 ## Si le dernier noeud est de type LOOP
-                If ( $this.Children[-1].Type -in ("Foreach","For","While","DoWhile") ) {
+                If ( $this.Children[-1].Type -in ("Foreach","For","While","DoWhile","DoUntil") ) {
                     $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid+" -attributes @{label='LoopEnded'}"
                 } Else {
                     $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid
@@ -566,7 +576,7 @@ Class ForeachNode : node {
             foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
 
             ## Si le dernier noeud est de type LOOP
-            If ( $this.Children[-1].Type -in ("Foreach","For","While","DoWhile") ) {
+            If ( $this.Children[-1].Type -in ("Foreach","For","While","DoWhile","DoUntil") ) {
                 $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid+" -attributes @{label='LoopEnded'}"
             } Else {
                 $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid
@@ -628,7 +638,7 @@ Class WhileNode : node {
             foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
 
             ## Si le dernier noeud est de type LOOP
-            If ( $this.Children[-1].Type -in ("Foreach","For","While","DoWhile") ) {
+            If ( $this.Children[-1].Type -in ("Foreach","For","While","DoWhile","DoUntil") ) {
                 $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid+" -attributes @{label='LoopEnded'}"
             } Else {
                 $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid
@@ -687,7 +697,7 @@ Class ForNode : node {
             foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
 
             ## Si le dernier noeud est de type LOOP
-            If ( $this.Children[-1].Type -in ("Foreach","For","While","DoWhile") ) {
+            If ( $this.Children[-1].Type -in ("Foreach","For","While","DoWhile","DoUntil") ) {
                 $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid+" -attributes @{label='LoopEnded'}"
             } Else {
                 $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid
@@ -715,6 +725,49 @@ Class DoUntilNode : node {
         $this.Statement = "Do Until ( "+ $e.Condition.extent.Text + " )"
         $this.code = $e.body.extent.Text
         $this.FindChildren($this.raw.Body.Statements,$this)
+    }
+
+    [string] graph () {
+
+        ## On stocke le noeud de fin
+        $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
+
+        ## on cree les bases
+        $string = "node "+$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
+        $string = $string+";node "+$this.EndNodeid+" -attributes @{Label='Is "+$this.raw.Condition+"'}"
+        $string = $string +";Edge -from "+$this.EndNodeid+" -to "+$this.nodeId+" -attributes @{Label='False, Loop'}"
+
+        ## si on a pas de previous node, et niveau 0
+        If ( ($this.Depth -eq 1) -And ($null -eq $this.LinkedNodeId.Previous) ) {
+            write-Verbose "Graph: DoUntil: Drawing START NODE"
+            $string = $string +";Edge -from START -to "+$this.NodeId        
+        }
+
+        ## si on a pas de next node, et niveau 1
+        If ( ($this.Depth -eq 1) -And ($null -eq $EndIfNode.Next) ) {
+            write-Verbose "Graph: DoUntil: Drawing END NODE"
+            $string = $string +";Edge -from "+$this.EndNodeid+" -to END"
+        }
+
+        If ( $this.Children.count -gt 0 ) {
+            Write-Verbose "Graph: DoUntil: Graph DoUntil children"
+            $string = $string +";Edge -from "+$this.NodeId+" -to "+$this.Children[0].NodeId
+            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
+
+            ## Si le dernier noeud est de type LOOP
+            If ( $this.Children[-1].Type -in ("Foreach","For","While","DoWhile","DoUntil") ) {
+                $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid+" -attributes @{label='LoopEnded'}"
+            } Else {
+                $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid
+            }
+        }
+
+        If ( $null -ne $EndIfNode.Next ) {
+            Write-Verbose "Graph: DoUntil: there is a node after the EndDoUntil"
+            $string = $string+ ";Edge -from "+$this.EndnodeId+" -to "+$EndIfNode.Next.Value+" -attributes @{label='LoopEnded'}"
+        }
+
+        return $string
     }
 }
 
@@ -761,7 +814,7 @@ Class DoWhileNode : node {
             foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
 
             ## Si le dernier noeud est de type LOOP
-            If ( $this.Children[-1].Type -in ("Foreach","For","While","DoWhile") ) {
+            If ( $this.Children[-1].Type -in ("Foreach","For","While","DoWhile","DoUntil") ) {
                 $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid+" -attributes @{label='LoopEnded'}"
             } Else {
                 $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid
