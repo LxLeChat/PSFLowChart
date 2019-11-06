@@ -73,6 +73,11 @@ class nodeutility {
                         $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$t.Nodeid)
                         $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
                     }
+
+                    If ( $t.type -eq "Switch") {
+                        $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$t.Nodeid)
+                        $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
+                    }
                 }
             }
         }
@@ -171,7 +176,7 @@ class node {
         $this.Guid()
         $this.DefaultShape = [nodeutility]::SetDefaultShape($this.Type)
 
-        If ( $this.Type -in ("If","Foreach","While","For","DoWhile","DoUntil") ) {
+        If ( $this.Type -in ("If","Foreach","While","For","DoWhile","DoUntil","Switch","SwitchCase","SwitchDefault") ) {
             $this.EndNodeid = "End_"+$this.Nodeid
         }
     }
@@ -185,7 +190,7 @@ class node {
         $this.Guid()
         $this.DefaultShape = [nodeutility]::SetDefaultShape($this.Type)
 
-        If ( $this.Type -in ("If","Foreach","While","For","DoWhile","DoUntil") ) {
+        If ( $this.Type -in ("If","Foreach","While","For","DoWhile","DoUntil","Switch","SwitchCase","SwitchDefault") ) {
             $this.EndNodeid = "End_"+$this.Nodeid
         }
     }
@@ -255,6 +260,11 @@ class node {
                 }
 
                 If ( $node.type -eq "DoUntil") {
+                    $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
+                    $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
+                }
+
+                If ( $node.type -in ("SwitchNode")) {
                     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
                     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
                 }
@@ -500,19 +510,52 @@ Class SwitchNode : node {
     SwitchNode ([Ast]$e) : base ($e) {
         $this.Statement = "Switch ( "+ $e.Condition.extent.Text + " )"
 
+        $LinkedList = [System.Collections.Generic.LinkedList[string]]::new()
+
+        ## Case nodes
         for( $i=0; $i -lt $e.Clauses.Count ; $i++ ) {
-            $this.Children.Add([SwitchCaseNode]::new($e.clauses[$i].Item1,$this,$this.Statement,$e.clauses[$i].Item2))
+            
+            $node = [SwitchCaseNode]::new($e.clauses[$i].Item1,$this,$this.Statement,$e.clauses[$i].Item2)
+            $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
+            $LinkedList.AddLast($LinkedNode)
+            $node.LinkedNodeId = $LinkedNode
+            $node.LinkedBrothers = $LinkedList
+            $this.Children.Add($node)
         }
 
-        $this.Children.Add([SwitchDefaultNode]::new($e.default,$this,$this.Statement,$e.default.statements))
+        ## Default Node
+        $node = [SwitchDefaultNode]::new($e.default,$this,$this.Statement,$e.default.statements)
+        $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
+        $LinkedList.AddLast($LinkedNode)
+        $node.LinkedNodeId = $LinkedNode
+        $node.LinkedBrothers = $LinkedList
+        $this.Children.Add($node)
     }
 
     SwitchNode ([Ast]$e,[node]$f) : base ($e,$f) {
         $this.Statement = "Switch ( "+ $e.Condition.extent.Text + " )"
 
+        
+        $LinkedList = [System.Collections.Generic.LinkedList[string]]::new()
+
+        ## Case nodes
         for( $i=0; $i -lt $e.Clauses.Count ; $i++ ) {
-            $this.Children.Add([SwitchCaseNode]::new($e.clauses[$i].Item1,$this,$this.Statement,$e.clauses[$i].Item2))
+            
+            $node = [SwitchCaseNode]::new($e.clauses[$i].Item1,$this,$this.Statement,$e.clauses[$i].Item2)
+            $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
+            $LinkedList.AddLast($LinkedNode)
+            $node.LinkedNodeId = $LinkedNode
+            $node.LinkedBrothers = $LinkedList
+            $this.Children.Add($node)
         }
+
+        ## Default Node
+        $node = [SwitchDefaultNode]::new($e.default,$this,$this.Statement,$e.default.statements)
+        $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
+        $LinkedList.AddLast($LinkedNode)
+        $node.LinkedNodeId = $LinkedNode
+        $node.LinkedBrothers = $LinkedList
+        $this.Children.Add($node)
         
 
     }
@@ -521,6 +564,39 @@ Class SwitchNode : node {
     ## la description ne sera utilisable que pour le graph
     [void]SetDescription([string]$e) {
         $this.Description = $e
+    }
+
+    [string] graph () {
+        ## On stocke le noeud de fin
+        $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
+
+        ## Creation des noeuds de base
+        $string = "node "+$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
+        $string = $string+";node "+$this.EndNodeid+" -attributes @{shape='point'}"
+
+        ## si on a pas de previous node, et niveau 1
+        If ( ($this.Depth -eq 1) -And ($null -eq $this.LinkedNodeId.Previous) ) {
+            write-Verbose "Graph: Switch: Drawing START NODE"
+            $string = $string +";Edge -from START -to "+$this.NodeId        
+        }
+
+        ## si on a pas de next node, et niveau 1
+        If ( ($this.Depth -eq 1) -And ($null -eq $EndIfNode.Next) ) {
+            write-Verbose "Graph: Switch: Drawing END NODE"
+            $string = $string +";Edge -from "+$this.EndNodeid+" -to END"
+        }
+
+        For ( $i=0;$i -lt $this.Children.Count; $i++){
+            If ( $i -eq 0 ) {
+                $string = $string + ";edge -from "+$this.nodeId+" -to "+$this.Children[$i].NodeId
+                $string = $string + ";" + $this.Children[$i].Graph()
+            } else {
+                $string = $string + ";edge -from "+$this.Children[$i-1].NodeId+" -to "+$this.Children[$i].NodeId+" -attributes @{label='False'}"
+                $string = $string + ";" + $this.Children[$i].Graph()
+                #$string = $string + ";edge -from "+$this.Children[$i].NodeId+" -to "+$this.Children[$i].EndNodeId
+            }
+        }
+        return $string
     }
 }
 
@@ -535,6 +611,23 @@ Class SwitchDefaultNode : node {
         $this.FindChildren($f,$this)
     }
 
+    [String] graph () {
+        ## Creation des noeuds de base
+        $string = "node "+$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
+        $string = $string+";node "+$this.EndNodeid+" -attributes @{shape='point'}"
+        $string = $string +";Edge -from "+$this.EndNodeId+" -to "+$this.Parent.EndNodeid
+
+        If ( $this.Children.count -gt 0 ) {
+            $string = $string +";Edge -from "+$this.NodeId+" -to "+$This.Children[0].NodeId
+            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
+            $string = $string +";Edge -from "+$this.Children[-1].nodeId+" -to "+$this.EndNodeid
+        }
+
+
+
+        return $string
+    }
+
 }
 
 Class SwitchCaseNode : node {
@@ -547,6 +640,23 @@ Class SwitchCaseNode : node {
         $this.Code = ($this.raw.Parent.Clauses.where({$_.Item1.Value -eq $item1ToSearch})).Item2.Extent.Text
 
         $this.FindChildren($f.Statements,$this)
+    }
+
+    [String] graph () {
+        ## Creation des noeuds de base
+        $string = "node "+$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
+        $string = $string+";node "+$this.EndNodeid+" -attributes @{shape='point'}"
+        $string = $string +";Edge -from "+$this.EndNodeId+" -to "+$this.Parent.EndNodeid
+
+        If ( $this.Children.count -gt 0 ) {
+            $string = $string +";Edge -from "+$this.NodeId+" -to "+$This.Children[0].NodeId
+            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
+            $string = $string +";Edge -from "+$this.Children[-1].nodeId+" -to "+$this.EndNodeid
+        }
+
+
+
+        return $string
     }
 
 }
