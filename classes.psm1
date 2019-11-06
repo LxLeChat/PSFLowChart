@@ -379,7 +379,13 @@ Class IfNode : node {
             
             ## On trace le edge entre le dernier enfant et le endif
             If ( $this.Children[-1].LinkedNodeId.next ) {
-                $string = $string + ";Edge -from "+$this.Children[-1].LinkedNodeId.next.Value+" -to "+$This.EndNodeid
+                ## Si le dernier noeud est de type LOOP
+                If ( $this.Children[-1].Type -in ("Foreach","For","While") ) {
+                    $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid+" -attributes @{label='LoopEnded'}"
+                } Else {
+                    $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid
+                }
+                # $string = $string + ";Edge -from "+$this.Children[-1].LinkedNodeId.next.Value+" -to "+$This.EndNodeid
             } else {
                 $string = $string + ";Edge -from "+$this.Children[-1].LinkedNodeId.Value+" -to "+$This.EndNodeid
             }
@@ -548,7 +554,14 @@ Class ForeachNode : node {
         If ( $this.Children.count -gt 0 ) {
             $string = $string +";Edge -from "+$this.NodeId+" -to "+$this.Children[0].NodeId
             foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
-            $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid
+
+            ## Si le dernier noeud est de type LOOP
+            If ( $this.Children[-1].Type -in ("Foreach","For","While") ) {
+                $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid+" -attributes @{label='LoopEnded'}"
+            } Else {
+                $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid
+            }
+            
         }
 
         If ( $null -ne $EndIfNode.Next ) {
@@ -603,7 +616,14 @@ Class WhileNode : node {
             Write-Verbose "Graph: While: Graph while children"
             $string = $string +";Edge -from "+$this.NodeId+" -to "+$this.Children[0].NodeId
             foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
-            $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid
+            # $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid
+
+            ## Si le dernier noeud est de type LOOP
+            If ( $this.Children[-1].Type -in ("Foreach","For","While") ) {
+                $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid+" -attributes @{label='LoopEnded'}"
+            } Else {
+                $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid
+            }
         }
 
         If ( $null -ne $EndIfNode.Next ) {
@@ -656,7 +676,14 @@ Class ForNode : node {
             Write-Verbose "Graph: For: Graph while children"
             $string = $string +";Edge -from "+$this.NodeId+" -to "+$this.Children[0].NodeId
             foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
-            $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid
+            # $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid
+
+            ## Si le dernier noeud est de type LOOP
+            If ( $this.Children[-1].Type -in ("Foreach","For","While") ) {
+                $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid+" -attributes @{label='LoopEnded'}"
+            } Else {
+                $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid
+            }
         }
 
         If ( $null -ne $EndIfNode.Next ) {
