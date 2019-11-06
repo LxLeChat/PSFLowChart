@@ -1,7 +1,9 @@
-switch ($x){
-    1 {
-        foreach ( $a in $b){"aaaa"}
+Foreach ( $a in $b ) {
+    switch ($x){
+        1 {
+            foreach ( $a in $b){"aaaa"}
+        }
+        2 {}
+        default {}
     }
-    2 {}
-    default {}
 }

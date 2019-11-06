@@ -264,7 +264,7 @@ class node {
                     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
                 }
 
-                If ( $node.type -in ("SwitchNode")) {
+                If ( $node.type -in ("Switch")) {
                     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
                     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
                 }
@@ -535,7 +535,6 @@ Class SwitchNode : node {
     SwitchNode ([Ast]$e,[node]$f) : base ($e,$f) {
         $this.Statement = "Switch ( "+ $e.Condition.extent.Text + " )"
 
-        
         $LinkedList = [System.Collections.Generic.LinkedList[string]]::new()
 
         ## Case nodes
@@ -707,6 +706,7 @@ Class ForeachNode : node {
             If ( $this.Children[-1].Type -in ("Foreach","For","While","DoWhile","DoUntil") ) {
                 $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid+" -attributes @{label='LoopEnded'}"
             } Else {
+                write-Verbose "Graph: Foreach: Drawing EDGE from Child last value to EndNodeId"
                 $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid
             }
             
