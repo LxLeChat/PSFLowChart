@@ -177,6 +177,7 @@ class node {
     }
 
     node ([Ast]$e,[node]$f) {
+        Write-Verbose $("File:"+$e.extent.file )
         $this.raw = $e
         $this.parent = $f
         $this.file = $e.extent.file
@@ -503,14 +504,16 @@ Class SwitchNode : node {
             $this.Children.Add([SwitchCaseNode]::new($e.clauses[$i].Item1,$this,$this.Statement,$e.clauses[$i].Item2))
         }
 
+        $this.Children.Add([SwitchDefaultNode]::new($e.default,$this,$this.Statement,$e.default.statements))
     }
 
     SwitchNode ([Ast]$e,[node]$f) : base ($e,$f) {
         $this.Statement = "Switch ( "+ $e.Condition.extent.Text + " )"
 
         for( $i=0; $i -lt $e.Clauses.Count ; $i++ ) {
-            $this.Children.Add([SwitchCaseNode]::new($e.clauses[$i].Item1,$this.Statement,$e.clauses[$i].Item2,$this))
+            $this.Children.Add([SwitchCaseNode]::new($e.clauses[$i].Item1,$this,$this.Statement,$e.clauses[$i].Item2))
         }
+        
 
     }
 
@@ -519,6 +522,19 @@ Class SwitchNode : node {
     [void]SetDescription([string]$e) {
         $this.Description = $e
     }
+}
+
+
+Class SwitchDefaultNode : node {
+    [String]$Type = "SwitchDefault"
+
+    SwitchDefaultNode ([Ast]$e,[node]$j,[string]$d,[Ast[]]$f) : base ($e,$j) {
+        Write-Verbose ("Default Switch, statements count:"+$f.count)
+        $this.Statement = "Default for {0}" -f $d
+        $this.Code = $this.raw.extent.Text
+        $this.FindChildren($f,$this)
+    }
+
 }
 
 Class SwitchCaseNode : node {
