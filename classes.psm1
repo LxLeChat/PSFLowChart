@@ -54,10 +54,15 @@ class nodeutility {
                         $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
                     }
 
-                    # If ( $t.type -eq "While") {
-                    #     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("Loop_"+$t.Nodeid)
-                    #     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
-                    # }
+                    If ( $t.type -eq "While") {
+                        $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$t.Nodeid)
+                        $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
+                    }
+
+                    If ( $t.type -eq "For") {
+                        $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$t.Nodeid)
+                        $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
+                    }
                 }
             }
         }
@@ -135,10 +140,10 @@ class node {
     [node]$Parent
     [int]$Depth
     $File
-    $Nodeid
-    $EndNodeid
-    $LinkedBrothers
-    $LinkedNodeId
+    hidden $Nodeid
+    hidden $EndNodeid
+    hidden $LinkedBrothers
+    hidden $LinkedNodeId
     hidden $code
     hidden $NewContent
     hidden $raw
@@ -156,7 +161,7 @@ class node {
         $this.Guid()
         $this.DefaultShape = [nodeutility]::SetDefaultShape($this.Type)
 
-        If ( $this.Type -in ("If","Foreach","While") ) {
+        If ( $this.Type -in ("If","Foreach","While","For") ) {
             $this.EndNodeid = "End_"+$this.Nodeid
         }
     }
@@ -169,7 +174,7 @@ class node {
         $this.Guid()
         $this.DefaultShape = [nodeutility]::SetDefaultShape($this.Type)
 
-        If ( $this.Type -in ("If","Foreach","While") ) {
+        If ( $this.Type -in ("If","Foreach","While","For") ) {
             $this.EndNodeid = "End_"+$this.Nodeid
         }
     }
@@ -219,6 +224,16 @@ class node {
                 }
 
                 If ( $node.type -eq "Foreach") {
+                    $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
+                    $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
+                }
+
+                If ( $node.type -eq "While") {
+                    $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
+                    $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
+                }
+
+                If ( $node.type -eq "For") {
                     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
                     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
                 }
@@ -339,7 +354,7 @@ Class IfNode : node {
 
         ## Creation des noeuds de base
         $string = "node "+$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
-        $string = $string+";node "+$this.EndNodeid+" -attributes @{Label='End "+$this.Statement+"'}"
+        $string = $string+";node "+$this.EndNodeid+" -attributes @{shape='point'}"
 
         ## si on a pas de previous node, et niveau 1
         If ( ($this.Depth -eq 1) -And ($null -eq $this.LinkedNodeId.Previous) ) {
@@ -422,7 +437,6 @@ Class ElseIfNode : node {
 
 }
 
-
 Class ElseNode : node {
     [String]$Type = "Else"
 
@@ -452,7 +466,6 @@ Class ElseNode : node {
         return $string
     }
 }
-
 
 Class SwitchNode : node {
     [String]$Type = "Switch"
@@ -540,7 +553,7 @@ Class ForeachNode : node {
 
         If ( $null -ne $EndIfNode.Next ) {
             Write-Verbose "Graph: If: there is a node after the EndIf"
-            $string = $string+ ";Edge -from "+$this.EndnodeId+" -to "+$EndIfNode.Next.Value
+            $string = $string+ ";Edge -from "+$this.EndnodeId+" -to "+$EndIfNode.Next.Value+" -attributes @{label='LoopEnded'}"
         }
 
         return $string
@@ -594,8 +607,8 @@ Class WhileNode : node {
         }
 
         If ( $null -ne $EndIfNode.Next ) {
-            Write-Verbose "Graph: If: there is a node after the EndIf"
-            $string = $string+ ";Edge -from "+$this.EndnodeId+" -to "+$EndIfNode.Next.Value
+            Write-Verbose "Graph: While: there is a node after the EndWhile"
+            $string = $string+ ";Edge -from "+$this.EndnodeId+" -to "+$EndIfNode.Next.Value+" -attributes @{label='LoopEnded'}"
         }
 
         return $string
@@ -615,6 +628,42 @@ Class ForNode : node {
         $this.Statement = "For ( "+ $e.Condition.extent.Text + " )"
         $this.code = $e.body.extent.Text
         $this.FindChildren($this.raw.Body.Statements,$this)
+    }
+
+    [string] graph () {
+
+        ## On stocke le noeud de fin
+        $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
+
+        ## on cree les bases
+        $string = "node "+$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
+        $string = $string+";node "+$this.EndNodeid+" -attributes @{Label='If "+$this.raw.Condition+"'}"
+        $string = $string +";Edge -from "+$this.EndNodeid+" -to "+$this.nodeId+" -attributes @{Label='"+$this.raw.Iterator.Extent.Text+"'}"
+
+        ## si on a pas de previous node, et niveau 0
+        If ( ($this.Depth -eq 1) -And ($null -eq $this.LinkedNodeId.Previous) ) {
+            write-Verbose "Graph: For: Drawing START NODE"
+            $string = $string +";Edge -from START -to "+$this.NodeId        
+        }
+
+        ## si on a pas de next node, et niveau 1
+        If ( ($this.Depth -eq 1) -And ($null -eq $EndIfNode.Next) ) {
+            write-Verbose "Graph: For: Drawing END NODE"
+            $string = $string +";Edge -from "+$this.EndNodeid+" -to END"
+        }
+
+        If ( $this.Children.count -gt 0 ) {
+            Write-Verbose "Graph: For: Graph while children"
+            $string = $string +";Edge -from "+$this.NodeId+" -to "+$this.Children[0].NodeId
+            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
+            $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid
+        }
+
+        If ( $null -ne $EndIfNode.Next ) {
+            Write-Verbose "Graph: For: there is a node after the EndFor"
+            $string = $string+ ";Edge -from "+$this.EndnodeId+" -to "+$EndIfNode.Next.Value+" -attributes @{label='LoopEnded'}"
+        }
+        return $string
     }
 }
 
