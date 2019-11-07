@@ -20,64 +20,40 @@ class nodeutility {
                     
                     $x+=$t
 
-                    If ( $t.Type -eq "If" ) {
-                    $LinkedNodeEndIf = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$t.Nodeid)
-                    $LinkedList.AddLast($LinkedNodeEndIf)
-                        If ( $t.raw.Clauses.Count -ge 1 ) {
-                            for( $i=1; $i -lt $t.raw.Clauses.Count ; $i++ ) {
-                                    $node = [ElseIfNode]::new($t.raw.clauses[$i].Item1,$t.Statement)
-                                    Write-Verbose "NIVEAU 1: $($node.Statement)"
-                                    $LinkedNodeC = [System.Collections.Generic.LinkedListNode[string]]::new($node.nodeId)
-                                    $LinkedList.AddBefore($LinkedNodeEndIf,$LinkedNodeC)
-                                    #$LinkedList.AddAfter($LinkedNode,$LinkedNodeC)
-                                    $node.LinkedBrothers = $LinkedList
-                                    $node.LinkedNodeId = $LinkedNodeC
-                                    $node.EndNodeid = $t.EndNodeid
-                                    $x += $node
-                            }
-                        }
-
-                        If ( $null -ne $t.raw.ElseClause ) {
-                            $node = [ElseNode]::new($t.raw.ElseClause,$t.Statement)
-                            $LinkedNodeD = [System.Collections.Generic.LinkedListNode[string]]::new($node.nodeId)
-                            $LinkedList.AddBefore($LinkedNodeEndIf,$LinkedNodeD)
-                            #$LinkedList.AddLast($LinkedNode,$LinkedNodeD)
-                            $node.LinkedBrothers = $LinkedList
-                            $node.LinkedNodeId = $LinkedNodeD
-                            $node.EndNodeid = $t.EndNodeid
-                            $x += $node
-                        }
-                    }
-
-                    If ( $t.type -eq "Foreach") {
+                    If ( $t.Type -NotIn ("Else","ElseIf","SwitchCase","SwitchDefault")) {
                         $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$t.Nodeid)
                         $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
                     }
 
-                    If ( $t.type -eq "While") {
-                        $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$t.Nodeid)
-                        $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
-                    }
+                    # If ( $t.type -eq "Foreach") {
+                    #     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$t.Nodeid)
+                    #     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
+                    # }
 
-                    If ( $t.type -eq "For") {
-                        $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$t.Nodeid)
-                        $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
-                    }
+                    # If ( $t.type -eq "While") {
+                    #     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$t.Nodeid)
+                    #     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
+                    # }
 
-                    If ( $t.type -eq "DoWhile") {
-                        $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$t.Nodeid)
-                        $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
-                    }
+                    # If ( $t.type -eq "For") {
+                    #     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$t.Nodeid)
+                    #     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
+                    # }
 
-                    If ( $t.type -eq "DoUntil") {
-                        $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$t.Nodeid)
-                        $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
-                    }
+                    # If ( $t.type -eq "DoWhile") {
+                    #     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$t.Nodeid)
+                    #     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
+                    # }
 
-                    If ( $t.type -eq "Switch") {
-                        $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$t.Nodeid)
-                        $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
-                    }
+                    # If ( $t.type -eq "DoUntil") {
+                    #     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$t.Nodeid)
+                    #     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
+                    # }
+
+                    # If ( $t.type -eq "Switch") {
+                    #     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$t.Nodeid)
+                    #     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
+                    # }
                 }
             }
         }
@@ -144,9 +120,6 @@ class nodeutility {
 
 }
 
-## Ajouter un noeud qu'on pourrait appeler CodeNode, par exemple dans un if , si il n y a rien dedans ...
-## Pour le flowchart comme ça on peut dire ce que le if fait
-## coup est ce que il faudrait pas que le else et elseif ne soient pas ua meme niveau ...?!
 class node {
     [string]$Type
     [string]$Statement
@@ -175,10 +148,7 @@ class node {
         $this.SetDepth()
         $this.Guid()
         $this.DefaultShape = [nodeutility]::SetDefaultShape($this.Type)
-
-        If ( $this.Type -in ("If","Foreach","While","For","DoWhile","DoUntil","Switch","SwitchCase","SwitchDefault") ) {
-            $this.EndNodeid = "End_"+$this.Nodeid
-        }
+        $this.EndNodeid = "End_"+$this.Nodeid
     }
 
     node ([Ast]$e,[node]$f) {
@@ -189,10 +159,7 @@ class node {
         $this.SetDepth()
         $this.Guid()
         $this.DefaultShape = [nodeutility]::SetDefaultShape($this.Type)
-
-        If ( $this.Type -in ("If","Foreach","While","For","DoWhile","DoUntil","Switch","SwitchCase","SwitchDefault") ) {
-            $this.EndNodeid = "End_"+$this.Nodeid
-        }
+        $this.EndNodeid = "End_"+$this.Nodeid
     }
 
     ## override with parent, for sublevels
@@ -208,66 +175,45 @@ class node {
                 $node.LinkedNodeId = $LinkedNode
                 $this.Children.add($node)
 
-                ##du coup niveau 3 il ajoute pas le endif ... !!!!!
-                #If ( ($node.Type -eq "If") -and ($node.Depth -eq 2)  ) {
-                If ( ($node.Type -eq "If")  ) {
-                    write-verbose "find-children $($node.Statement)"
-                    $LinkedNodeEndIf = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
-                    $LinkedList.AddLast($LinkedNodeEndIf)
-                    If ( $node.raw.Clauses.Count -ge 1 ) {
-                        for( $i=1; $i -lt $node.raw.Clauses.Count ; $i++ ) {
-                                $nodeElseIf = [ElseIfNode]::new($node.raw.clauses[$i].Item1,$this,$node.Statement)
-                                $LinkedNodeC = [System.Collections.Generic.LinkedListNode[string]]::new($nodeElseIf.nodeId)
-                                $LinkedList.AddBefore($LinkedNodeEndIf,$LinkedNodeC)
-                                #$LinkedList.AddAfter($LinkedNode,$LinkedNodeC)
-                                $nodeElseIf.LinkedBrothers = $LinkedList
-                                $nodeElseIf.LinkedNodeId = $LinkedNodeC
-                                $nodeElseIf.EndNodeid = $node.EndNodeid
-                                $this.Children.add($nodeElseIf)
-                        }
-                    }
-
-                    If ( $null -ne $node.raw.ElseClause ) {
-                        $nodeElse = [ElseNode]::new($node.raw.ElseClause,$this,$node.Statement)
-                        $LinkedNodeD = [System.Collections.Generic.LinkedListNode[string]]::new($nodeElse.nodeId)
-                        $LinkedList.AddBefore($LinkedNodeEndIf,$LinkedNodeD)
-                        #$LinkedList.AddAfter($LinkedNode,$LinkedNodeD)
-                        $nodeElse.LinkedBrothers = $LinkedList
-                        $nodeElse.LinkedNodeId = $LinkedNodeD
-                        $nodeElse.EndNodeid = $node.EndNodeid
-                        $this.Children.add($nodeElse)
-                    }
-                }
-
-                If ( $node.type -eq "Foreach") {
+                If ( $node.Type -NotIn ("Else","ElseIf","SwitchCase","SwitchDefault")) {
                     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
                     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
                 }
 
-                If ( $node.type -eq "While") {
-                    $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
-                    $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
-                }
+                # If ( $node.type -eq "If") {
+                #     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
+                #     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
+                # }
 
-                If ( $node.type -eq "For") {
-                    $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
-                    $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
-                }
+                # If ( $node.type -eq "Foreach") {
+                #     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
+                #     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
+                # }
 
-                If ( $node.type -eq "DoWhile") {
-                    $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
-                    $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
-                }
+                # If ( $node.type -eq "While") {
+                #     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
+                #     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
+                # }
 
-                If ( $node.type -eq "DoUntil") {
-                    $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
-                    $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
-                }
+                # If ( $node.type -eq "For") {
+                #     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
+                #     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
+                # }
 
-                If ( $node.type -in ("Switch")) {
-                    $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
-                    $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
-                }
+                # If ( $node.type -eq "DoWhile") {
+                #     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
+                #     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
+                # }
+
+                # If ( $node.type -eq "DoUntil") {
+                #     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
+                #     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
+                # }
+
+                # If ( $node.type -in ("Switch")) {
+                #     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
+                #     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
+                # }
             }
         }
 
@@ -281,6 +227,65 @@ class node {
         }
     }
 
+    ## override pour le if
+    [void] FindChildren ([Ast[]]$e,[node]$f,$LinkedList) {
+        # $LinkedList = [System.Collections.Generic.LinkedList[string]]::new()
+        
+        foreach ( $d in $e ) {
+            If ( $d.GetType() -in [nodeutility]::GetASTitems() ) {
+                $node = [nodeutility]::SetNode($d,$f)
+                $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
+                $LinkedList.AddLast($LinkedNode)
+                $node.LinkedBrothers = $LinkedList
+                $node.LinkedNodeId = $LinkedNode
+                $this.Children.add($node)
+
+                If ( $node.Type -NotIn ("Else","ElseIf","SwitchCase","SwitchDefault")) {
+                    $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
+                    $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
+                }
+
+                # If ( $node.type -eq "Foreach") {
+                #     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
+                #     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
+                # }
+
+                # If ( $node.type -eq "While") {
+                #     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
+                #     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
+                # }
+
+                # If ( $node.type -eq "For") {
+                #     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
+                #     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
+                # }
+
+                # If ( $node.type -eq "DoWhile") {
+                #     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
+                #     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
+                # }
+
+                # If ( $node.type -eq "DoUntil") {
+                #     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
+                #     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
+                # }
+
+                # If ( $node.type -in ("Switch")) {
+                #     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
+                #     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
+                # }
+            }
+        }
+
+        If ( $this.Children.count -eq 0 ) {
+            $node = [BlockProcess]::new()
+            $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
+            $LinkedList.AddLast($LinkedNode)
+            $node.LinkedBrothers = $LinkedList
+            $node.LinkedNodeId = $LinkedNode
+            $this.Children.add($node)
+        }
+    }
 
     [void] FindDescription () {
         $tokens=@()
@@ -357,33 +362,84 @@ Class IfNode : node {
     [string]$Type = "If"
 
     IfNode ([Ast]$e) : base ($e) {
+        Write-Verbose "If : Constructor : 1"
 
-        If ( $this.raw.Clauses.Count -gt 0 ) {
-            $this.Statement = "If ( {0} )" -f $this.raw.Clauses[0].Item1.Extent.Text
-            $this.Code = $this.raw.Clauses[0].Item2.Extent.Text
+        $LinkedList = [System.Collections.Generic.LinkedList[string]]::new()
+
+        $this.FindChildren($this.raw.Clauses[0].Item2.Statements,$this,$LinkedList)
+
+        If ( $e.Clauses.Count -ge 1 ) {
+            for( $i=0; $i -lt $e.Clauses.Count ; $i++ ) {
+                if ( $i -eq 0 ) {
+                    $this.Statement = "If ( {0} )" -f $e.Clauses[$i].Item1.Extent.Text
+                    $this.Code = $e.Clauses[$i].Item2.Extent.Text
+                } else {
+                    Write-Verbose "If: Constructeur1: Ajout d un ElseIf ..."
+                    $node = [ElseIfNode]::new($e.clauses[$i].Item1,$this,$this.Statement)
+                    $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
+                    $LinkedList.AddLast($LinkedNode)
+                    $node.LinkedBrothers = $LinkedList
+                    $node.LinkedNodeId = $LinkedNode
+                    $this.Children.add($node)
+                }
+            }
         }
-        $this.FindChildren($this.raw.Clauses[0].Item2.Statements,$this)
 
+        If ( $null -ne $e.ElseClause ) {
+            Write-Verbose "If: Constructeur1: Ajout d un Else ..."
+            $node = [ElseNode]::new($e.ElseClause,$this,$this.Statement)
+            $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
+            $LinkedList.AddLast($LinkedNode)
+            $node.LinkedBrothers = $LinkedList
+            $node.LinkedNodeId = $LinkedNode
+            $this.Children.Add($node)
+        }
+        
     }
 
     IfNode ([Ast]$e,[node]$f) : base ($e,$f) {
 
-        If ( $this.raw.Clauses.Count -gt 0 ) {
-            $this.Statement = "If ( {0} )" -f $this.raw.Clauses[0].Item1.Extent.Text
-            $this.Code = $this.raw.Clauses[0].Item2.Extent.Text
+        $LinkedList = [System.Collections.Generic.LinkedList[string]]::new()
+
+        $this.FindChildren($this.raw.Clauses[0].Item2.Statements,$this,$LinkedList)
+
+        If ( $e.Clauses.Count -ge 1 ) {
+            for( $i=0; $i -lt $e.Clauses.Count ; $i++ ) {
+                if ( $i -eq 0 ) {
+                    $this.Statement = "If ( {0} )" -f $e.Clauses[$i].Item1.Extent.Text
+                    $this.Code = $e.Clauses[$i].Item2.Extent.Text
+                } else {
+                    Write-Verbose "If: Constructeur2: Ajout d un ElseIf ..."
+                    $node = [ElseIfNode]::new($e.clauses[$i].Item1,$this,$this.Statement)
+                    $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
+                    $LinkedList.AddLast($LinkedNode)
+                    $node.LinkedBrothers = $LinkedList
+                    $node.LinkedNodeId = $LinkedNode
+                    $this.Children.add($node)
+                }
+            }
         }
 
-        $this.FindChildren($this.raw.Clauses[0].Item2.Statements,$this)
+        If ( $null -ne $e.ElseClause ) {
+            Write-Verbose "If: Constructeur2: Ajout d un Else ..."
+            $node = [ElseNode]::new($e.ElseClause,$this,$this.Statement)
+            $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
+            $LinkedList.AddLast($LinkedNode)
+            $node.LinkedBrothers = $LinkedList
+            $node.LinkedNodeId = $LinkedNode
+            $this.Children.Add($node)
+        }
+        
 
     }
 
     [string] graph () {
-        
+
         ## On stocke le noeud de fin
         $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
 
         ## Creation des noeuds de base
-        $string = "node "+$this.Nodeid+" -attributes @{Label='"+($this.Statement -replace "'|""",'')+"'}"
+        $string = "node "+$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
         $string = $string+";node "+$this.EndNodeid+" -attributes @{shape='point'}"
 
         ## si on a pas de previous node, et niveau 1
@@ -398,27 +454,28 @@ Class IfNode : node {
             $string = $string +";Edge -from "+$this.EndNodeid+" -to END"
         }
 
-        If ( $null -ne $This.LinkedNodeId.Next) {
-            $string = $string +";Edge -from "+$this.NodeId+" -to "+$This.LinkedNodeId.Next.Value+" -attributes @{Label='False'}"
-        }
-       
         If ( $this.Children.count -gt 0 ) {
-            Write-Verbose "Graph: If: ChildrenCount > 0, Graphing To First ChildNode"
-            $string = $string + ";Edge -from "+$this.NodeId+" -to "+$This.Children[0].NodeId+" -attributes @{Label='True'}"
-            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
-            
-            ## On trace le edge entre le dernier enfant et le endif
-            If ( $this.Children[-1].LinkedNodeId.next ) {
-                ## Si le dernier noeud est de type LOOP
-                If ( $this.Children[-1].Type -in ("Foreach","For","While","DoWhile","DoUntil") ) {
-                    $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid+" -attributes @{label='LoopEnded'}"
-                } Else {
-                    $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid
-                }
-                # $string = $string + ";Edge -from "+$this.Children[-1].LinkedNodeId.next.Value+" -to "+$This.EndNodeid
-            } else {
-                $string = $string + ";Edge -from "+$this.Children[-1].LinkedNodeId.Value+" -to "+$This.EndNodeid
+            $string = $string +";Edge -from "+$this.NodeId+" -to "+$This.Children[0].NodeId+" -attributes @{Label='True'}"
+            $LastEdgeTrue = $this.Children.Where{($_.type -notin ('ElseIf','Else'))} | Select-Object -last 1
+
+            If ( $LastEdgeTrue.Type -in ("Foreach","For","While","DoWhile","DoUntil") ) {
+                $string = $string +";Edge -from "+$LastEdgeTrue.LinkedBrothers.Last.Value+" -to "+$this.EndNodeid+" -attributes @{label='LoopEnded'}"
+            } Else {
+                $string = $string +";Edge -from "+$LastEdgeTrue.LinkedBrothers.Last.Value+" -to "+$this.EndNodeid
             }
+
+            # $string = $string +";Edge -from "+$LastEdgeTrue.EndnodeId+" -to "+$this.EndNodeid
+
+            ## si on au au moins un else ou un elseif, on trace le premier edgefalse
+            If ( ($this.Children.type -contains "Elseif") -or ($this.Children.type -contains "Else") ) {
+                $FirstFalseEdge = $this.Children.Where{($_.type -in ('ElseIf','Else'))} | Select-Object -first 1
+                $string = $string +";Edge -from "+$this.NodeId+" -to "+$FirstFalseEdge.nodeId+" -attributes @{Label='False'}"
+            } else {
+                $string = $string +";Edge -from "+$this.NodeId+" -to "+$this.EndnodeId+" -attributes @{Label='False'}"
+            }
+
+            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
+
         }
 
         If ( $null -ne $EndIfNode.Next ) {
@@ -433,14 +490,7 @@ Class IfNode : node {
 
 Class ElseIfNode : node {
     [String]$Type = "ElseIf"
-    #$f represente l element2 du tuple donc si on veut chercher ce qu il y a en dessous il faut utiliser ça
-    ElseIfNode ([Ast]$e,[string]$d) : base ($e,$j) {
-        $this.Statement = "ElseIf ( {0} ) From {1}" -f $e.Extent.Text,$d
-        $item1ToSearch = $this.raw.extent.text
-        $this.Code = ($this.raw.Parent.Clauses.where({$_.Item1.extent.text -eq $item1ToSearch})).Item2.Extent.Text
 
-        $this.FindChildren($this.raw.Parent.Clauses.where({$_.item1.extent.text -eq $this.raw.extent.text}).item2.Statements,$this)
-    }
 
     ElseIfNode ([Ast]$e,[node]$j,[string]$d) : base ($e,$j) {
         $this.Statement = "ElseIf ( {0} ) From {1}" -f $e.Extent.Text,$d
@@ -452,20 +502,19 @@ Class ElseIfNode : node {
 
     [string] graph () {
 
-        $string = "node " +$this.Nodeid+" -attributes @{Label='"+($this.Statement -replace "'|""",'')+"'}"
+        $string = "node " +$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
 
         If ( $null -ne $This.LinkedNodeId.Next ) {
             $string = $string + ";Edge -from "+$this.NodeId+" -to "+$This.LinkedNodeId.Next.Value+" -attributes @{Label='False'}"
         } Else {
-            $string = $string + ";Edge -from "+$this.NodeId+" -to "+$This.EndNodeid+" -attributes @{Label='False'}"
+            $string = $string + ";Edge -from "+$this.NodeId+" -to "+$This.Parent.EndNodeid+" -attributes @{Label='False'}"
         }
 
         If ( $this.Children.count -gt 0 ) {
             $string = $string +";Edge -from "+$this.NodeId+" -to "+$This.Children[0].NodeId+" -attributes @{Label='True'}"
             foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
             
-            $string = $string +";Edge -from "+$this.Children[-1].nodeId+" -to "+$this.EndNodeid
-
+            $string = $string +";Edge -from "+$this.Children[-1].nodeId+" -to "+$this.Parent.EndNodeid
         }
 
         return $string
@@ -490,13 +539,12 @@ Class ElseNode : node {
 
     [string] graph () {
 
-        $string = "node "+$this.Nodeid+" -attributes @{Label='"+($this.Statement -replace "'|""",'')+"'}"
+        $string = "node "+$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
 
         If ( $this.Children.count -gt 0 ) {
             $string = $string +";Edge -from "+$this.NodeId+" -to "+$This.Children[0].NodeId
             foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
-            $string = $string +";Edge -from "+$this.Children[-1].nodeId+" -to "+$this.EndNodeid
-
+            $string = $string +";Edge -from "+$this.Children[-1].nodeId+" -to "+$this.Parent.EndNodeid
         }
 
         return $string
@@ -569,7 +617,7 @@ Class SwitchNode : node {
         $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
 
         ## Creation des noeuds de base
-        $string = "node "+$this.Nodeid+" -attributes @{Label='"+($this.Statement -replace "'|""",'')+"'}"
+        $string = "node "+$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
         $string = $string+";node "+$this.EndNodeid+" -attributes @{shape='point'}"
 
         ## si on a pas de previous node, et niveau 1
@@ -598,7 +646,6 @@ Class SwitchNode : node {
     }
 }
 
-
 Class SwitchDefaultNode : node {
     [String]$Type = "SwitchDefault"
 
@@ -611,7 +658,7 @@ Class SwitchDefaultNode : node {
 
     [String] graph () {
         ## Creation des noeuds de base
-        $string = "node "+$this.Nodeid+" -attributes @{Label='"+($this.Statement -replace "'|""",'')+"'}"
+        $string = "node "+$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
         $string = $string+";node "+$this.EndNodeid+" -attributes @{shape='point'}"
         $string = $string +";Edge -from "+$this.EndNodeId+" -to "+$this.Parent.EndNodeid
 
@@ -642,7 +689,7 @@ Class SwitchCaseNode : node {
 
     [String] graph () {
         ## Creation des noeuds de base
-        $string = "node "+$this.Nodeid+" -attributes @{Label='"+($this.Statement -replace "'|""",'')+"'}"
+        $string = "node "+$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
         $string = $string+";node "+$this.EndNodeid+" -attributes @{shape='point'}"
         $string = $string +";Edge -from "+$this.EndNodeId+" -to "+$this.Parent.EndNodeid
 
@@ -681,7 +728,7 @@ Class ForeachNode : node {
         $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
 
         ## Noeud et edge de base
-        $string = "node "+$this.Nodeid+" -attributes @{Label='"+($this.Statement -replace "'|""",'')+"'}"
+        $string = "node "+$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
         $string = $string+";node "+$this.EndNodeid+" -attributes @{Label='Next "+$this.raw.Condition+"'}"
         $string = $string +";Edge -from "+$this.EndNodeid+" -to "+$this.nodeId+" -attributes @{Label='Loop'}"
 
@@ -743,7 +790,7 @@ Class WhileNode : node {
         $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
 
         ## on cree les bases
-        $string = "node "+$this.Nodeid+" -attributes @{Label='"+($this.Statement -replace "'|""",'')+"'}"
+        $string = "node "+$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
         $string = $string+";node "+$this.EndNodeid+" -attributes @{Label='If "+$this.raw.Condition+"'}"
         $string = $string +";Edge -from "+$this.EndNodeid+" -to "+$this.nodeId+" -attributes @{Label='True, Loop'}"
 
@@ -802,7 +849,7 @@ Class ForNode : node {
         $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
 
         ## on cree les bases
-        $string = "node "+$this.Nodeid+" -attributes @{Label='"+($this.Statement -replace "'|""",'')+"'}"
+        $string = "node "+$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
         $string = $string+";node "+$this.EndNodeid+" -attributes @{Label='If "+$this.raw.Condition+"'}"
         $string = $string +";Edge -from "+$this.EndNodeid+" -to "+$this.nodeId+" -attributes @{Label='"+$this.raw.Iterator.Extent.Text+"'}"
 
@@ -860,7 +907,7 @@ Class DoUntilNode : node {
         $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
 
         ## on cree les bases
-        $string = "node "+$this.Nodeid+" -attributes @{Label='"+($this.Statement -replace "'|""",'')+"'}"
+        $string = "node "+$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
         $string = $string+";node "+$this.EndNodeid+" -attributes @{Label='Is "+$this.raw.Condition+"'}"
         $string = $string +";Edge -from "+$this.EndNodeid+" -to "+$this.nodeId+" -attributes @{Label='False, Loop'}"
 
@@ -919,7 +966,7 @@ Class DoWhileNode : node {
         $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
 
         ## on cree les bases
-        $string = "node "+$this.Nodeid+" -attributes @{Label='"+($this.Statement -replace "'|""",'')+"'}"
+        $string = "node "+$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
         $string = $string+";node "+$this.EndNodeid+" -attributes @{Label='If "+$this.raw.Condition+"'}"
         $string = $string +";Edge -from "+$this.EndNodeid+" -to "+$this.nodeId+" -attributes @{Label='True, Loop'}"
 
@@ -965,7 +1012,7 @@ Class BlockProcess : node {
     }
 
     [string] graph (){
-        $string = "node "+$this.Nodeid+" -attributes @{Label='"+($this.Statement -replace "'|""",'')+"'}"
+        $string = "node "+$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
         return $string
     }
 }
