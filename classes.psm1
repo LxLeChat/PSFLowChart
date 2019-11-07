@@ -378,13 +378,12 @@ Class IfNode : node {
     }
 
     [string] graph () {
-
         
         ## On stocke le noeud de fin
         $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
 
         ## Creation des noeuds de base
-        $string = "node "+$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
+        $string = "node "+$this.Nodeid+" -attributes @{Label='"+($this.Statement -replace "'|""",'')+"'}"
         $string = $string+";node "+$this.EndNodeid+" -attributes @{shape='point'}"
 
         ## si on a pas de previous node, et niveau 1
@@ -453,7 +452,7 @@ Class ElseIfNode : node {
 
     [string] graph () {
 
-        $string = "node " +$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
+        $string = "node " +$this.Nodeid+" -attributes @{Label='"+($this.Statement -replace "'|""",'')+"'}"
 
         If ( $null -ne $This.LinkedNodeId.Next ) {
             $string = $string + ";Edge -from "+$this.NodeId+" -to "+$This.LinkedNodeId.Next.Value+" -attributes @{Label='False'}"
@@ -491,7 +490,7 @@ Class ElseNode : node {
 
     [string] graph () {
 
-        $string = "node "+$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
+        $string = "node "+$this.Nodeid+" -attributes @{Label='"+($this.Statement -replace "'|""",'')+"'}"
 
         If ( $this.Children.count -gt 0 ) {
             $string = $string +";Edge -from "+$this.NodeId+" -to "+$This.Children[0].NodeId
@@ -570,7 +569,7 @@ Class SwitchNode : node {
         $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
 
         ## Creation des noeuds de base
-        $string = "node "+$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
+        $string = "node "+$this.Nodeid+" -attributes @{Label='"+($this.Statement -replace "'|""",'')+"'}"
         $string = $string+";node "+$this.EndNodeid+" -attributes @{shape='point'}"
 
         ## si on a pas de previous node, et niveau 1
@@ -612,7 +611,7 @@ Class SwitchDefaultNode : node {
 
     [String] graph () {
         ## Creation des noeuds de base
-        $string = "node "+$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
+        $string = "node "+$this.Nodeid+" -attributes @{Label='"+($this.Statement -replace "'|""",'')+"'}"
         $string = $string+";node "+$this.EndNodeid+" -attributes @{shape='point'}"
         $string = $string +";Edge -from "+$this.EndNodeId+" -to "+$this.Parent.EndNodeid
 
@@ -643,7 +642,7 @@ Class SwitchCaseNode : node {
 
     [String] graph () {
         ## Creation des noeuds de base
-        $string = "node "+$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
+        $string = "node "+$this.Nodeid+" -attributes @{Label='"+($this.Statement -replace "'|""",'')+"'}"
         $string = $string+";node "+$this.EndNodeid+" -attributes @{shape='point'}"
         $string = $string +";Edge -from "+$this.EndNodeId+" -to "+$this.Parent.EndNodeid
 
@@ -682,7 +681,7 @@ Class ForeachNode : node {
         $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
 
         ## Noeud et edge de base
-        $string = "node "+$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
+        $string = "node "+$this.Nodeid+" -attributes @{Label='"+($this.Statement -replace "'|""",'')+"'}"
         $string = $string+";node "+$this.EndNodeid+" -attributes @{Label='Next "+$this.raw.Condition+"'}"
         $string = $string +";Edge -from "+$this.EndNodeid+" -to "+$this.nodeId+" -attributes @{Label='Loop'}"
 
@@ -744,7 +743,7 @@ Class WhileNode : node {
         $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
 
         ## on cree les bases
-        $string = "node "+$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
+        $string = "node "+$this.Nodeid+" -attributes @{Label='"+($this.Statement -replace "'|""",'')+"'}"
         $string = $string+";node "+$this.EndNodeid+" -attributes @{Label='If "+$this.raw.Condition+"'}"
         $string = $string +";Edge -from "+$this.EndNodeid+" -to "+$this.nodeId+" -attributes @{Label='True, Loop'}"
 
@@ -803,7 +802,7 @@ Class ForNode : node {
         $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
 
         ## on cree les bases
-        $string = "node "+$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
+        $string = "node "+$this.Nodeid+" -attributes @{Label='"+($this.Statement -replace "'|""",'')+"'}"
         $string = $string+";node "+$this.EndNodeid+" -attributes @{Label='If "+$this.raw.Condition+"'}"
         $string = $string +";Edge -from "+$this.EndNodeid+" -to "+$this.nodeId+" -attributes @{Label='"+$this.raw.Iterator.Extent.Text+"'}"
 
@@ -861,7 +860,7 @@ Class DoUntilNode : node {
         $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
 
         ## on cree les bases
-        $string = "node "+$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
+        $string = "node "+$this.Nodeid+" -attributes @{Label='"+($this.Statement -replace "'|""",'')+"'}"
         $string = $string+";node "+$this.EndNodeid+" -attributes @{Label='Is "+$this.raw.Condition+"'}"
         $string = $string +";Edge -from "+$this.EndNodeid+" -to "+$this.nodeId+" -attributes @{Label='False, Loop'}"
 
@@ -920,7 +919,7 @@ Class DoWhileNode : node {
         $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
 
         ## on cree les bases
-        $string = "node "+$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
+        $string = "node "+$this.Nodeid+" -attributes @{Label='"+($this.Statement -replace "'|""",'')+"'}"
         $string = $string+";node "+$this.EndNodeid+" -attributes @{Label='If "+$this.raw.Condition+"'}"
         $string = $string +";Edge -from "+$this.EndNodeid+" -to "+$this.nodeId+" -attributes @{Label='True, Loop'}"
 
@@ -966,7 +965,7 @@ Class BlockProcess : node {
     }
 
     [string] graph (){
-        $string = "node "+$this.Nodeid+" -attributes @{Label='"+$this.Statement+"'}"
+        $string = "node "+$this.Nodeid+" -attributes @{Label='"+($this.Statement -replace "'|""",'')+"'}"
         return $string
     }
 }
