@@ -24,36 +24,6 @@ class nodeutility {
                         $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$t.Nodeid)
                         $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
                     }
-
-                    # If ( $t.type -eq "Foreach") {
-                    #     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$t.Nodeid)
-                    #     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
-                    # }
-
-                    # If ( $t.type -eq "While") {
-                    #     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$t.Nodeid)
-                    #     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
-                    # }
-
-                    # If ( $t.type -eq "For") {
-                    #     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$t.Nodeid)
-                    #     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
-                    # }
-
-                    # If ( $t.type -eq "DoWhile") {
-                    #     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$t.Nodeid)
-                    #     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
-                    # }
-
-                    # If ( $t.type -eq "DoUntil") {
-                    #     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$t.Nodeid)
-                    #     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
-                    # }
-
-                    # If ( $t.type -eq "Switch") {
-                    #     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$t.Nodeid)
-                    #     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
-                    # }
                 }
             }
         }
@@ -181,40 +151,6 @@ class node {
                     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
                 }
 
-                # If ( $node.type -eq "If") {
-                #     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
-                #     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
-                # }
-
-                # If ( $node.type -eq "Foreach") {
-                #     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
-                #     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
-                # }
-
-                # If ( $node.type -eq "While") {
-                #     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
-                #     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
-                # }
-
-                # If ( $node.type -eq "For") {
-                #     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
-                #     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
-                # }
-
-                # If ( $node.type -eq "DoWhile") {
-                #     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
-                #     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
-                # }
-
-                # If ( $node.type -eq "DoUntil") {
-                #     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
-                #     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
-                # }
-
-                # If ( $node.type -in ("Switch")) {
-                #     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
-                #     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
-                # }
             }
         }
 
@@ -230,7 +166,6 @@ class node {
 
     ## override pour le if
     [void] FindChildren ([Ast[]]$e,[node]$f,$LinkedList) {
-        # $LinkedList = [System.Collections.Generic.LinkedList[string]]::new()
         
         foreach ( $d in $e ) {
             If ( $d.GetType() -in [nodeutility]::GetASTitems() ) {
@@ -246,35 +181,6 @@ class node {
                     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
                 }
 
-                # If ( $node.type -eq "Foreach") {
-                #     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
-                #     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
-                # }
-
-                # If ( $node.type -eq "While") {
-                #     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
-                #     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
-                # }
-
-                # If ( $node.type -eq "For") {
-                #     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
-                #     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
-                # }
-
-                # If ( $node.type -eq "DoWhile") {
-                #     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
-                #     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
-                # }
-
-                # If ( $node.type -eq "DoUntil") {
-                #     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
-                #     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
-                # }
-
-                # If ( $node.type -in ("Switch")) {
-                #     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
-                #     $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
-                # }
             }
         }
 
