@@ -11,3 +11,5 @@ $a=Find-FCNodes .\plop.ps1
 New-FCGraph $a
 ```
 Manfez c'est pret.
+
+![plopy](plop.png)
