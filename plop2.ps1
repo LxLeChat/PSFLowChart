@@ -4,6 +4,10 @@
         
     } ElseIf ( $a -eq 2) {
         "bbbbb"
-    } else {
+    }elseif ($a -eq 3) {
+        "cccccccc"
+    }elseif( $a -eq 4){
+    }elseif( $a -eq 5){
+    }else {
         "ccccc"
     }
