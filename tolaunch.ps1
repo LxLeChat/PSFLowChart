@@ -1,4 +1,4 @@
-$x=[nodeutility]::ParseFile("$PWD\switch.ps1")
+$x=[nodeutility]::ParseFile("$PWD\plop.ps1")
 
 $string=$x.graph()
 $s = $string | out-string

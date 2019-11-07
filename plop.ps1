@@ -35,6 +35,10 @@ If ( $b ) {
         }
 }
 
+do {
+    if ( $i -eq 2 ) {}
+} until ($i -lt 10)
+
 If ( $a ) {
     "baaaa"
 }
