@@ -195,37 +195,69 @@ class node {
     }
 
     [void] FindDescription () {
-        $tokens=@()
-        [Parser]::ParseInput($this.code,[ref]$tokens,[ref]$null)
-        
-        $c = $tokens | Where-Object kind -eq "comment"
-        If ( $c.count -gt 0 ) {
-            If ( $c[0].text -match 'DiagramDescription:(?<description>\s?[\w\s]+)' ) {
+        write-Verbose "$($this.Type)"
+        $comment = [System.Management.Automation.PSParser]::Tokenize($this.Code,[ref]$null) | Where-Object {$_.type -eq "comment" -And $_.StartLine -eq 2}
+        # $this.Description = $this.Statement
+
+        If ( $comment ) {
+            If ( $comment[0].Content -match "Description:(?<description>\s?[\w\s]+)" ) {
                 $this.Description = $Matches.description.Trim() 
-            } Else {
+            }
+        }
+        
+    }
+
+    [void] FindDescription ([Bool]$Recurse) {
+        write-Verbose "$($this.Type)"
+        $comment = [System.Management.Automation.PSParser]::Tokenize($this.Code,[ref]$null) | Where-Object {$_.type -eq "comment" -And $_.StartLine -eq 2}
+        # $this.Description = $this.Statement
+
+        If ( $comment ) {
+            If ( $comment[0].Content -match "Description:(?<description>\s?[\w\s]+)" ) {
+                $this.Description = $Matches.description.Trim() 
+            }
+        }
+        $this.Children.FindDescription($Recurse)
+        
+    }
+
+    [void] FindDescription ([Bool]$Recurse,[string]$KeyWord) {
+        $comment = [System.Management.Automation.PSParser]::Tokenize($this.Code,[ref]$null) | Where-Object {$_.type -eq "comment" -And $_.StartLine -eq 2}
+        # $this.Description = $this.Statement
+
+        If ( $comment ) {
+            If ( $comment[0].Content -match "$($KeyWord):(?<description>\s?[\w\s]+)" ) {
+                $this.Description = $Matches.description.Trim() 
+            }
+        }
+        
+        $this.Children.FindDescription($Recurse,$KeyWord)
+        
+    }
+
+    ## Pour Setter la description
+    [void] SetDescription ([Bool]$Recurse) {
+
+        $this.FindDescription()
+
+        If ( $null -eq $this.Description ) {
+            $d = Read-Host -Prompt $("Set description for {0}" -f $this.Statement)
+        } Else {
+            $d = Read-Host -Prompt $("Actual description for {0} is {1}" -f $this.Statement,$this.Description)
+        }
+
+        if ( $null -ne $d ) {
+            $this.Description = $d
+        } else {
+            If ( $this.Description -eq $this.Statement ) {
                 $this.Description = $this.Statement
             }
         }
-    }
 
-    ## a revoir, avec comme base $code !
-    [void] SetDescription () {
-        If ( $null -eq $this.Description ) {
-            $this.Description = Read-Host -Prompt $("Description for {0}" -f $this.Statement)
-        } Else { 
-            $d = Read-Host -Prompt $("Actual description for {0} is: {1}" -f $this.Statement,$this.Description)
-            if ( $null -ne $d ) {
-                $this.Description = $d
-            } else {
-                $this.Description = $this.Statement
+        If ( $Recurse ) {
+            If ( $this.Children ) {
+                $this.Children.SetDescription($True)
             }
-         }
-        
-        # USE code Property !
-        if ( $null -ne $this.Description ) {
-            #$f = (($this.raw.Extent.Text -split '\r?\n')[0]).Length
-            #$g = "<#`n    DiagramDescription: $($this.Description))`n#>`n"
-            #$this.NewContent = $this.raw.Extent.Text.Insert($f+2,$g)
         }
         
     }
@@ -554,6 +586,19 @@ Class SwitchNode : node {
             $string = $string + ";edge -from " + $EndIfNode.Value + " -to " + $EndIfNode.Next.Value
         }
         return $string
+    }
+
+    ## On cherche pas de description
+    [void]FindDescription(){
+        $this.Description = $this.Statement
+    }
+    [void]FindDescription([Bool]$Recurse){
+        $this.Description = $this.Statement
+        $this.Children.FindDescription($Recurse)
+    }
+    [void]FindDescription([Bool]$Recurse,[String]$KeyWord){
+        $this.Description = $this.Statement
+        $this.Children.FindDescription($Recurse)
     }
 }
 
@@ -928,4 +973,9 @@ Class BlockProcess : node {
         $string = "node "+$this.Nodeid+" -attributes @{Label='"+($this.Statement -replace "'|""",'')+"'}"
         return $string
     }
+
+    ## On cherche pas de description
+    [void]FindDescription(){}
+    [void]FindDescription([Bool]$Recurse){}
+    [void]FindDescription([Bool]$Recurse,[String]$KeyWord){}
 }
