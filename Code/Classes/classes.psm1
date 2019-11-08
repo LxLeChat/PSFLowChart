@@ -3,26 +3,26 @@ using namespace System.Management.Automation.Language
 class nodeutility {
 
     [node[]] static ParseFile ([string]$File) {
-        $ParsedFile     = [Parser]::ParseFile($file, [ref]$null, [ref]$Null)
-        $RawAstDocument = $ParsedFile.FindAll({$args[0] -is [Ast]}, $false)
+        $ParsedFile = [Parser]::ParseFile($file, [ref]$null, [ref]$Null)
+        $RawAstDocument = $ParsedFile.FindAll( { $args[0] -is [Ast] }, $false)
         $LinkedList = [System.Collections.Generic.LinkedList[string]]::new()
-        $x=@()
-        $RawAstDocument | ForEach-Object{
+        $x = @()
+        $RawAstDocument | ForEach-Object {
             $CurrentRawAst = $PSItem
             if ( $null -eq $CurrentRawAst.parent.parent.parent ) {
                 $t = [nodeutility]::SetNode($CurrentRawAst)
-                if ( $null -ne  $t) {
+                if ( $null -ne $t) {
                     Write-Verbose "NIVEAU 1: $($t.Statement)"
                     $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($t.Nodeid)
                     $LinkedList.AddLast($LinkedNode)
                     $t.LinkedBrothers = $LinkedList
                     $t.LinkedNodeId = $LinkedNode
-                    
-                    $x+=$t
+                
+                    $x += $t
 
-                    If ( $t.Type -NotIn ("Else","ElseIf","SwitchCase","SwitchDefault")) {
-                        $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$t.Nodeid)
-                        $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
+                    If ( $t.Type -NotIn ("Else", "ElseIf", "SwitchCase", "SwitchDefault")) {
+                        $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_" + $t.Nodeid)
+                        $LinkedList.AddAfter($LinkedNode, $LinkedNodeNext)
                     }
                 }
             }
@@ -33,11 +33,11 @@ class nodeutility {
     [node] static SetNode ([object]$e) {
         $node = $null
         Switch ( $e ) {
-            { $psitem -is [IfStatementAst]      } { $node = [IfNode]::new($PSItem)      }
+            { $psitem -is [IfStatementAst] } { $node = [IfNode]::new($PSItem) }
             { $psitem -is [ForEachStatementAst] } { $node = [ForeachNode]::new($PSItem) }
-            { $psitem -is [WhileStatementAst]   } { $node = [WhileNode]::new($PSItem)   }
-            { $psitem -is [SwitchStatementAst]  } { $node = [SwitchNode]::new($PSItem) }
-            { $psitem -is [ForStatementAst]     } { $node = [ForNode]::new($PSItem)     }
+            { $psitem -is [WhileStatementAst] } { $node = [WhileNode]::new($PSItem) }
+            { $psitem -is [SwitchStatementAst] } { $node = [SwitchNode]::new($PSItem) }
+            { $psitem -is [ForStatementAst] } { $node = [ForNode]::new($PSItem) }
             { $psitem -is [DoUntilStatementAst] } { $node = [DoUntilNode]::new($PSItem) }
             { $psitem -is [DoWhileStatementAst] } { $node = [DoWhileNode]::new($PSItem) }
         }
@@ -45,17 +45,17 @@ class nodeutility {
     }
 
     ## override with parent, for sublevels
-    [node] static SetNode ([object]$e,[node]$f) {
+    [node] static SetNode ([object]$e, [node]$f) {
         $node = $null
         Switch ( $e ) {
-            { $psitem -is [IfStatementAst]      } { $node = [IfNode]::new($PSItem,$f)      }
-            { $psitem -is [ForEachStatementAst] } { $node = [ForeachNode]::new($PSItem,$f) }
-            { $psitem -is [WhileStatementAst]   } { $node = [WhileNode]::new($PSItem,$f)   }
-            { $psitem -is [SwitchStatementAst]  } { $node = [SwitchNode]::new($PSItem,$f) }
-            { $psitem -is [ForStatementAst]     } { $node = [ForNode]::new($PSItem,$f)     }
-            { $psitem -is [DoUntilStatementAst] } { $node = [DoUntilNode]::new($PSItem,$f) }
-            { $psitem -is [DoWhileStatementAst] } { $node = [DoWhileNode]::new($PSItem,$f) }
-            
+            { $psitem -is [IfStatementAst] } { $node = [IfNode]::new($PSItem, $f) }
+            { $psitem -is [ForEachStatementAst] } { $node = [ForeachNode]::new($PSItem, $f) }
+            { $psitem -is [WhileStatementAst] } { $node = [WhileNode]::new($PSItem, $f) }
+            { $psitem -is [SwitchStatementAst] } { $node = [SwitchNode]::new($PSItem, $f) }
+            { $psitem -is [ForStatementAst] } { $node = [ForNode]::new($PSItem, $f) }
+            { $psitem -is [DoUntilStatementAst] } { $node = [DoUntilNode]::new($PSItem, $f) }
+            { $psitem -is [DoWhileStatementAst] } { $node = [DoWhileNode]::new($PSItem, $f) }
+        
         }
         return $node
     }
@@ -75,15 +75,15 @@ class nodeutility {
     [String] static SetDefaultShape ([String]$e) {
         $Shape = $Null
         Switch ( $e ) {
-            "If"       { $Shape = "diamond"       }
-            "ElseIf"   { $Shape = "diamond"       }
-            "Foreach"  { $Shape = "parallelogram" }
-            "While"    { $Shape = "parallelogram" }
-            "DoWhile"  { $Shape = "parallelogram" }
-            "DoUntil"  { $Shape = "parallelogram" }
-            "For"      { $Shape = "parallelogram" }
-            Defaut     { $Shape = "box" }
-            
+            "If" { $Shape = "diamond" }
+            "ElseIf" { $Shape = "diamond" }
+            "Foreach" { $Shape = "parallelogram" }
+            "While" { $Shape = "parallelogram" }
+            "DoWhile" { $Shape = "parallelogram" }
+            "DoUntil" { $Shape = "parallelogram" }
+            "For" { $Shape = "parallelogram" }
+            Defaut { $Shape = "box" }
+        
         }
         return $Shape
     }
@@ -119,36 +119,36 @@ class node {
         $this.SetDepth()
         $this.Guid()
         $this.DefaultShape = [nodeutility]::SetDefaultShape($this.Type)
-        $this.EndNodeid = "End_"+$this.Nodeid
+        $this.EndNodeid = "End_" + $this.Nodeid
     }
 
-    node ([Ast]$e,[node]$f) {
-        Write-Verbose $("File:"+$e.extent.file )
+    node ([Ast]$e, [node]$f) {
+        Write-Verbose $("File:" + $e.extent.file )
         $this.raw = $e
         $this.parent = $f
         $this.file = $e.extent.file
         $this.SetDepth()
         $this.Guid()
         $this.DefaultShape = [nodeutility]::SetDefaultShape($this.Type)
-        $this.EndNodeid = "End_"+$this.Nodeid
+        $this.EndNodeid = "End_" + $this.Nodeid
     }
 
     ## override with parent, for sublevels
-    [void] FindChildren ([Ast[]]$e,[node]$f) {
+    [void] FindChildren ([Ast[]]$e, [node]$f) {
         $LinkedList = [System.Collections.Generic.LinkedList[string]]::new()
-        
+    
         foreach ( $d in $e ) {
             If ( $d.GetType() -in [nodeutility]::GetASTitems() ) {
-                $node = [nodeutility]::SetNode($d,$f)
+                $node = [nodeutility]::SetNode($d, $f)
                 $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
                 $LinkedList.AddLast($LinkedNode)
                 $node.LinkedBrothers = $LinkedList
                 $node.LinkedNodeId = $LinkedNode
                 $this.Children.add($node)
 
-                If ( $node.Type -NotIn ("Else","ElseIf","SwitchCase","SwitchDefault")) {
-                    $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
-                    $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
+                If ( $node.Type -NotIn ("Else", "ElseIf", "SwitchCase", "SwitchDefault")) {
+                    $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_" + $node.Nodeid)
+                    $LinkedList.AddAfter($LinkedNode, $LinkedNodeNext)
                 }
 
             }
@@ -165,20 +165,20 @@ class node {
     }
 
     ## override pour le if
-    [void] FindChildren ([Ast[]]$e,[node]$f,$LinkedList) {
-        
+    [void] FindChildren ([Ast[]]$e, [node]$f, $LinkedList) {
+    
         foreach ( $d in $e ) {
             If ( $d.GetType() -in [nodeutility]::GetASTitems() ) {
-                $node = [nodeutility]::SetNode($d,$f)
+                $node = [nodeutility]::SetNode($d, $f)
                 $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
                 $LinkedList.AddLast($LinkedNode)
                 $node.LinkedBrothers = $LinkedList
                 $node.LinkedNodeId = $LinkedNode
                 $this.Children.add($node)
 
-                If ( $node.Type -NotIn ("Else","ElseIf","SwitchCase","SwitchDefault")) {
-                    $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_"+$node.Nodeid)
-                    $LinkedList.AddAfter($LinkedNode,$LinkedNodeNext)
+                If ( $node.Type -NotIn ("Else", "ElseIf", "SwitchCase", "SwitchDefault")) {
+                    $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_" + $node.Nodeid)
+                    $LinkedList.AddAfter($LinkedNode, $LinkedNodeNext)
                 }
 
             }
@@ -196,7 +196,7 @@ class node {
 
     [void] FindDescription () {
         write-Verbose "$($this.Type)"
-        $comment = [System.Management.Automation.PSParser]::Tokenize($this.Code,[ref]$null) | Where-Object {$_.type -eq "comment" -And $_.StartLine -eq 2}
+        $comment = [System.Management.Automation.PSParser]::Tokenize($this.Code, [ref]$null) | Where-Object { $_.type -eq "comment" -And $_.StartLine -eq 2 }
         # $this.Description = $this.Statement
 
         If ( $comment ) {
@@ -204,12 +204,12 @@ class node {
                 $this.Description = $Matches.description.Trim() 
             }
         }
-        
+    
     }
 
     [void] FindDescription ([Bool]$Recurse) {
         write-Verbose "$($this.Type)"
-        $comment = [System.Management.Automation.PSParser]::Tokenize($this.Code,[ref]$null) | Where-Object {$_.type -eq "comment" -And $_.StartLine -eq 2}
+        $comment = [System.Management.Automation.PSParser]::Tokenize($this.Code, [ref]$null) | Where-Object { $_.type -eq "comment" -And $_.StartLine -eq 2 }
         # $this.Description = $this.Statement
 
         If ( $comment ) {
@@ -218,11 +218,10 @@ class node {
             }
         }
         $this.Children.FindDescription($Recurse)
-        
     }
 
-    [void] FindDescription ([Bool]$Recurse,[string]$KeyWord) {
-        $comment = [System.Management.Automation.PSParser]::Tokenize($this.Code,[ref]$null) | Where-Object {$_.type -eq "comment" -And $_.StartLine -eq 2}
+    [void] FindDescription ([Bool]$Recurse, [string]$KeyWord) {
+        $comment = [System.Management.Automation.PSParser]::Tokenize($this.Code, [ref]$null) | Where-Object { $_.type -eq "comment" -And $_.StartLine -eq 2 }
         # $this.Description = $this.Statement
 
         If ( $comment ) {
@@ -230,9 +229,9 @@ class node {
                 $this.Description = $Matches.description.Trim() 
             }
         }
-        
-        $this.Children.FindDescription($Recurse,$KeyWord)
-        
+    
+        $this.Children.FindDescription($Recurse, $KeyWord)
+    
     }
 
     ## Pour Setter la description
@@ -242,13 +241,15 @@ class node {
 
         If ( $null -eq $this.Description ) {
             $d = Read-Host -Prompt $("Set description for {0}" -f $this.Statement)
-        } Else {
-            $d = Read-Host -Prompt $("Actual description for {0} is {1}" -f $this.Statement,$this.Description)
+        }
+        Else {
+            $d = Read-Host -Prompt $("Actual description for {0} is {1}" -f $this.Statement, $this.Description)
         }
 
         if ( $null -ne $d ) {
             $this.Description = $d
-        } else {
+        }
+        else {
             If ( $this.Description -eq $this.Statement ) {
                 $this.Description = $this.Statement
             }
@@ -259,7 +260,7 @@ class node {
                 $this.Children.SetDescription($True)
             }
         }
-        
+    
     }
 
     [node[]] GetChildren ([bool]$recurse) {
@@ -270,34 +271,37 @@ class node {
                     $a += $child.getchildren($true)
                 }
                 $a += $this.Children
-            } else {
+            }
+            else {
                 break;
             }
-        } else {
-            $a=$this.Children
         }
-                
+        else {
+            $a = $this.Children
+        }
+            
         return $a
     }
-    
+
     ## Need override in case of switchnodecase, elseif, and else
     [void] SetDepth () {
         If ( $null -eq $this.parent ) {
             $this.Depth = 1
-        } Else {
+        }
+        Else {
             $this.Depth = $this.Parent.Depth + 1
         }
 
     }
 
-    hidden [void] Guid (){
+    hidden [void] Guid () {
         $this.Nodeid = ([guid]::NewGuid()).Guid
     }
 
 }
 
 Class IfNode : node {
-    
+
     [string]$Type = "If"
 
     IfNode ([Ast]$e) : base ($e) {
@@ -305,16 +309,17 @@ Class IfNode : node {
 
         $LinkedList = [System.Collections.Generic.LinkedList[string]]::new()
 
-        $this.FindChildren($this.raw.Clauses[0].Item2.Statements,$this,$LinkedList)
+        $this.FindChildren($this.raw.Clauses[0].Item2.Statements, $this, $LinkedList)
 
         If ( $e.Clauses.Count -ge 1 ) {
-            for( $i=0; $i -lt $e.Clauses.Count ; $i++ ) {
+            for ( $i = 0; $i -lt $e.Clauses.Count ; $i++ ) {
                 if ( $i -eq 0 ) {
                     $this.Statement = "If ( {0} )" -f $e.Clauses[$i].Item1.Extent.Text
                     $this.Code = $e.Clauses[$i].Item2.Extent.Text
-                } else {
+                }
+                else {
                     Write-Verbose "If: Constructeur1: Ajout d un ElseIf ..."
-                    $node = [ElseIfNode]::new($e.clauses[$i].Item1,$this,$this.Statement)
+                    $node = [ElseIfNode]::new($e.clauses[$i].Item1, $this, $this.Statement)
                     $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
                     $LinkedList.AddLast($LinkedNode)
                     $node.LinkedBrothers = $LinkedList
@@ -326,30 +331,31 @@ Class IfNode : node {
 
         If ( $null -ne $e.ElseClause ) {
             Write-Verbose "If: Constructeur1: Ajout d un Else ..."
-            $node = [ElseNode]::new($e.ElseClause,$this,$this.Statement)
+            $node = [ElseNode]::new($e.ElseClause, $this, $this.Statement)
             $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
             $LinkedList.AddLast($LinkedNode)
             $node.LinkedBrothers = $LinkedList
             $node.LinkedNodeId = $LinkedNode
             $this.Children.Add($node)
         }
-        
+    
     }
 
-    IfNode ([Ast]$e,[node]$f) : base ($e,$f) {
+    IfNode ([Ast]$e, [node]$f) : base ($e, $f) {
 
         $LinkedList = [System.Collections.Generic.LinkedList[string]]::new()
 
-        $this.FindChildren($this.raw.Clauses[0].Item2.Statements,$this,$LinkedList)
+        $this.FindChildren($this.raw.Clauses[0].Item2.Statements, $this, $LinkedList)
 
         If ( $e.Clauses.Count -ge 1 ) {
-            for( $i=0; $i -lt $e.Clauses.Count ; $i++ ) {
+            for ( $i = 0; $i -lt $e.Clauses.Count ; $i++ ) {
                 if ( $i -eq 0 ) {
                     $this.Statement = "If ( {0} )" -f $e.Clauses[$i].Item1.Extent.Text
                     $this.Code = $e.Clauses[$i].Item2.Extent.Text
-                } else {
+                }
+                else {
                     Write-Verbose "If: Constructeur2: Ajout d un ElseIf ..."
-                    $node = [ElseIfNode]::new($e.clauses[$i].Item1,$this,$this.Statement)
+                    $node = [ElseIfNode]::new($e.clauses[$i].Item1, $this, $this.Statement)
                     $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
                     $LinkedList.AddLast($LinkedNode)
                     $node.LinkedBrothers = $LinkedList
@@ -361,14 +367,14 @@ Class IfNode : node {
 
         If ( $null -ne $e.ElseClause ) {
             Write-Verbose "If: Constructeur2: Ajout d un Else ..."
-            $node = [ElseNode]::new($e.ElseClause,$this,$this.Statement)
+            $node = [ElseNode]::new($e.ElseClause, $this, $this.Statement)
             $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
             $LinkedList.AddLast($LinkedNode)
             $node.LinkedBrothers = $LinkedList
             $node.LinkedNodeId = $LinkedNode
             $this.Children.Add($node)
         }
-        
+    
 
     }
 
@@ -378,39 +384,43 @@ Class IfNode : node {
         $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
 
         ## Creation des noeuds de base
-        $string = "node "+$this.Nodeid+" -attributes @{Label='"+($this.Statement -replace "'|""",'')+"'}"
-        $string = $string+";node "+$this.EndNodeid+" -attributes @{shape='point'}"
+        $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        $string = $string + ";node " + $this.EndNodeid + " -attributes @{shape='point'}"
 
         ## si on a pas de previous node, et niveau 1
         If ( ($this.Depth -eq 1) -And ($null -eq $this.LinkedNodeId.Previous) ) {
             write-Verbose "Graph: If: Drawing START NODE"
-            $string = $string +";Edge -from START -to "+$this.NodeId        
+            $string = $string + ";Edge -from START -to " + $this.NodeId        
         }
 
         ## si on a pas de next node, et niveau 1
         If ( ($this.Depth -eq 1) -And ($null -eq $EndIfNode.Next) ) {
             write-Verbose "Graph: If: Drawing END NODE"
-            $string = $string +";Edge -from "+$this.EndNodeid+" -to END"
+            $string = $string + ";Edge -from " + $this.EndNodeid + " -to END"
         }
 
         If ( $this.Children.count -gt 0 ) {
-            $string = $string +";Edge -from "+$this.NodeId+" -to "+$This.Children[0].NodeId+" -attributes @{Label='True'}"
-            $LastEdgeTrue = $this.Children.Where{($_.type -notin ('ElseIf','Else'))} | Select-Object -last 1
+            $string = $string + ";Edge -from " + $this.NodeId + " -to " + $This.Children[0].NodeId + " -attributes @{Label='True'}"
+            $LastEdgeTrue = $this.Children.Where{ ($_.type -notin ('ElseIf', 'Else')) } | Select-Object -last 1
 
-            If ( $LastEdgeTrue.Type -in ("Foreach","For","While","DoWhile","DoUntil") ) {
-                $string = $string +";Edge -from "+$LastEdgeTrue.LinkedBrothers.Last.Value+" -to "+$this.EndNodeid+" -attributes @{label='LoopEnded'}"
-            } Else {
-                $string = $string +";Edge -from "+$LastEdgeTrue.Endnodeid+" -to "+$this.EndNodeid
+            If ( $LastEdgeTrue.Type -in ("Foreach", "For", "While", "DoWhile", "DoUntil") ) {
+                ## c'est ici le probleme ...
+                # $string = $string + ";Edge -from " + $LastEdgeTrue.LinkedBrothers.Last.Value + " -to " + $this.EndNodeid + " -attributes @{label='LoopEnded'}"
+                $string = $string + ";Edge -from " + $LastEdgeTrue.EndNodeId + " -to " + $this.EndNodeid + " -attributes @{label='LoopEnded'}"
+            }
+            Else {
+                $string = $string + ";Edge -from " + $LastEdgeTrue.Endnodeid + " -to " + $this.EndNodeid
             }
 
             # $string = $string +";Edge -from "+$LastEdgeTrue.EndnodeId+" -to "+$this.EndNodeid
 
             ## si on au au moins un else ou un elseif, on trace le premier edgefalse
             If ( ($this.Children.type -contains "Elseif") -or ($this.Children.type -contains "Else") ) {
-                $FirstFalseEdge = $this.Children.Where{($_.type -in ('ElseIf','Else'))} | Select-Object -first 1
-                $string = $string +";Edge -from "+$this.NodeId+" -to "+$FirstFalseEdge.nodeId+" -attributes @{Label='False'}"
-            } else {
-                $string = $string +";Edge -from "+$this.NodeId+" -to "+$this.EndnodeId+" -attributes @{Label='False'}"
+                $FirstFalseEdge = $this.Children.Where{ ($_.type -in ('ElseIf', 'Else')) } | Select-Object -first 1
+                $string = $string + ";Edge -from " + $this.NodeId + " -to " + $FirstFalseEdge.nodeId + " -attributes @{Label='False'}"
+            }
+            else {
+                $string = $string + ";Edge -from " + $this.NodeId + " -to " + $this.EndnodeId + " -attributes @{Label='False'}"
             }
 
             foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
@@ -419,7 +429,7 @@ Class IfNode : node {
 
         If ( $null -ne $EndIfNode.Next ) {
             Write-Verbose "Graph: If: there is a node after the EndIf"
-            $string = $string+ ";Edge -from "+$this.EndnodeId+" -to "+$EndIfNode.Next.Value
+            $string = $string + ";Edge -from " + $this.EndnodeId + " -to " + $EndIfNode.Next.Value
         }
 
         return $string
@@ -431,28 +441,29 @@ Class ElseIfNode : node {
     [String]$Type = "ElseIf"
 
 
-    ElseIfNode ([Ast]$e,[node]$j,[string]$d) : base ($e,$j) {
-        $this.Statement = "ElseIf ( {0} ) From {1}" -f $e.Extent.Text,$d
+    ElseIfNode ([Ast]$e, [node]$j, [string]$d) : base ($e, $j) {
+        $this.Statement = "ElseIf ( {0} ) From {1}" -f $e.Extent.Text, $d
         $item1ToSearch = $this.raw.extent.text
-        $this.Code = ($this.raw.Parent.Clauses.where({$_.Item1.extent.text -eq $item1ToSearch})).Item2.Extent.Text
+        $this.Code = ($this.raw.Parent.Clauses.where( { $_.Item1.extent.text -eq $item1ToSearch })).Item2.Extent.Text
 
-        $this.FindChildren($this.raw.Parent.Clauses.where({$_.item1.extent.text -eq $this.raw.extent.text}).item2.Statements,$this)
+        $this.FindChildren($this.raw.Parent.Clauses.where( { $_.item1.extent.text -eq $this.raw.extent.text }).item2.Statements, $this)
     }
 
     [string] graph () {
 
-        $string = "node " +$this.Nodeid+" -attributes @{Label='"+($this.Statement -replace "'|""",'')+"'}"
+        $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
 
         If ( $null -ne $This.LinkedNodeId.Next ) {
-            $string = $string + ";Edge -from "+$this.NodeId+" -to "+$This.LinkedNodeId.Next.Value+" -attributes @{Label='False'}"
-        } Else {
-            $string = $string + ";Edge -from "+$this.NodeId+" -to "+$This.Parent.EndNodeid+" -attributes @{Label='False'}"
+            $string = $string + ";Edge -from " + $this.NodeId + " -to " + $This.LinkedNodeId.Next.Value + " -attributes @{Label='False'}"
+        }
+        Else {
+            $string = $string + ";Edge -from " + $this.NodeId + " -to " + $This.Parent.EndNodeid + " -attributes @{Label='False'}"
         }
 
         If ( $this.Children.count -gt 0 ) {
-            $string = $string +";Edge -from "+$this.NodeId+" -to "+$This.Children[0].NodeId+" -attributes @{Label='True'}"
+            $string = $string + ";Edge -from " + $this.NodeId + " -to " + $This.Children[0].NodeId + " -attributes @{Label='True'}"
             foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
-            $string = $string +";Edge -from "+$this.Children[-1].EndnodeId+" -to "+$this.Parent.EndNodeid
+            $string = $string + ";Edge -from " + $this.Children[-1].EndnodeId + " -to " + $this.Parent.EndNodeid
         }
 
         return $string
@@ -463,26 +474,26 @@ Class ElseIfNode : node {
 Class ElseNode : node {
     [String]$Type = "Else"
 
-    ElseNode ([Ast]$e,[string]$d)  : base ($e) {
+    ElseNode ([Ast]$e, [string]$d)  : base ($e) {
         $this.Statement = "Else From {0}" -f $d
         $this.code = $e.extent.Text
-        $this.FindChildren($this.raw.statements,$this)
+        $this.FindChildren($this.raw.statements, $this)
     }
 
-    ElseNode ([Ast]$e,[node]$f,[string]$d)  : base ($e,$f) {
+    ElseNode ([Ast]$e, [node]$f, [string]$d)  : base ($e, $f) {
         $this.Statement = "Else From {0}" -f $d
         $this.code = $e.extent.Text
-        $this.FindChildren($this.raw.statements,$this)
+        $this.FindChildren($this.raw.statements, $this)
     }
 
     [string] graph () {
 
-        $string = "node "+$this.Nodeid+" -attributes @{Label='"+($this.Statement -replace "'|""",'')+"'}"
+        $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
 
         If ( $this.Children.count -gt 0 ) {
-            $string = $string +";Edge -from "+$this.NodeId+" -to "+$This.Children[0].NodeId
+            $string = $string + ";Edge -from " + $this.NodeId + " -to " + $This.Children[0].NodeId
             foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
-            $string = $string +";Edge -from "+$this.Children[-1].EndnodeId+" -to "+$this.Parent.EndNodeid
+            $string = $string + ";Edge -from " + $this.Children[-1].EndnodeId + " -to " + $this.Parent.EndNodeid
         }
 
         return $string
@@ -493,14 +504,14 @@ Class SwitchNode : node {
     [String]$Type = "Switch"
 
     SwitchNode ([Ast]$e) : base ($e) {
-        $this.Statement = "Switch ( "+ $e.Condition.extent.Text + " )"
+        $this.Statement = "Switch ( " + $e.Condition.extent.Text + " )"
 
         $LinkedList = [System.Collections.Generic.LinkedList[string]]::new()
 
         ## Case nodes
-        for( $i=0; $i -lt $e.Clauses.Count ; $i++ ) {
-            
-            $node = [SwitchCaseNode]::new($e.clauses[$i].Item1,$this,$this.Statement,$e.clauses[$i].Item2)
+        for ( $i = 0; $i -lt $e.Clauses.Count ; $i++ ) {
+        
+            $node = [SwitchCaseNode]::new($e.clauses[$i].Item1, $this, $this.Statement, $e.clauses[$i].Item2)
             $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
             $LinkedList.AddLast($LinkedNode)
             $node.LinkedNodeId = $LinkedNode
@@ -509,7 +520,7 @@ Class SwitchNode : node {
         }
 
         ## Default Node
-        $node = [SwitchDefaultNode]::new($e.default,$this,$this.Statement,$e.default.statements)
+        $node = [SwitchDefaultNode]::new($e.default, $this, $this.Statement, $e.default.statements)
         $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
         $LinkedList.AddLast($LinkedNode)
         $node.LinkedNodeId = $LinkedNode
@@ -517,15 +528,15 @@ Class SwitchNode : node {
         $this.Children.Add($node)
     }
 
-    SwitchNode ([Ast]$e,[node]$f) : base ($e,$f) {
-        $this.Statement = "Switch ( "+ $e.Condition.extent.Text + " )"
+    SwitchNode ([Ast]$e, [node]$f) : base ($e, $f) {
+        $this.Statement = "Switch ( " + $e.Condition.extent.Text + " )"
 
         $LinkedList = [System.Collections.Generic.LinkedList[string]]::new()
 
         ## Case nodes
-        for( $i=0; $i -lt $e.Clauses.Count ; $i++ ) {
-            
-            $node = [SwitchCaseNode]::new($e.clauses[$i].Item1,$this,$this.Statement,$e.clauses[$i].Item2)
+        for ( $i = 0; $i -lt $e.Clauses.Count ; $i++ ) {
+        
+            $node = [SwitchCaseNode]::new($e.clauses[$i].Item1, $this, $this.Statement, $e.clauses[$i].Item2)
             $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
             $LinkedList.AddLast($LinkedNode)
             $node.LinkedNodeId = $LinkedNode
@@ -534,13 +545,13 @@ Class SwitchNode : node {
         }
 
         ## Default Node
-        $node = [SwitchDefaultNode]::new($e.default,$this,$this.Statement,$e.default.statements)
+        $node = [SwitchDefaultNode]::new($e.default, $this, $this.Statement, $e.default.statements)
         $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
         $LinkedList.AddLast($LinkedNode)
         $node.LinkedNodeId = $LinkedNode
         $node.LinkedBrothers = $LinkedList
         $this.Children.Add($node)
-        
+    
 
     }
 
@@ -555,28 +566,29 @@ Class SwitchNode : node {
         $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
 
         ## Creation des noeuds de base
-        $string = "node "+$this.Nodeid+" -attributes @{Label='"+($this.Statement -replace "'|""",'')+"'}"
+        $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
         #$string = $string+";node "+$this.EndNodeid
-        $string = $string+";node "+$this.EndNodeid+" -attributes @{shape='point'}"
+        $string = $string + ";node " + $this.EndNodeid + " -attributes @{shape='point'}"
 
         ## si on a pas de previous node, et niveau 1
         If ( ($this.Depth -eq 1) -And ($null -eq $this.LinkedNodeId.Previous) ) {
             write-Verbose "Graph: Switch: Drawing START NODE"
-            $string = $string +";Edge -from START -to "+$this.NodeId        
+            $string = $string + ";Edge -from START -to " + $this.NodeId        
         }
 
         ## si on a pas de next node, et niveau 1
         If ( ($this.Depth -eq 1) -And ($null -eq $EndIfNode.Next) ) {
             write-Verbose "Graph: Switch: Drawing END NODE"
-            $string = $string +";Edge -from "+$this.EndNodeid+" -to END"
+            $string = $string + ";Edge -from " + $this.EndNodeid + " -to END"
         }
 
-        For ( $i=0;$i -lt $this.Children.Count; $i++){
+        For ( $i = 0; $i -lt $this.Children.Count; $i++) {
             If ( $i -eq 0 ) {
-                $string = $string + ";edge -from "+$this.nodeId+" -to "+$this.Children[$i].NodeId
+                $string = $string + ";edge -from " + $this.nodeId + " -to " + $this.Children[$i].NodeId
                 $string = $string + ";" + $this.Children[$i].Graph()
-            } else {
-                $string = $string + ";edge -from "+$this.Children[$i-1].NodeId+" -to "+$this.Children[$i].NodeId+" -attributes @{label='False'}"
+            }
+            else {
+                $string = $string + ";edge -from " + $this.Children[$i - 1].NodeId + " -to " + $this.Children[$i].NodeId + " -attributes @{label='False'}"
                 $string = $string + ";" + $this.Children[$i].Graph()
                 #$string = $string + ";edge -from "+$this.Children[$i].NodeId+" -to "+$this.Children[$i].EndNodeId
             }
@@ -589,14 +601,14 @@ Class SwitchNode : node {
     }
 
     ## On cherche pas de description
-    [void]FindDescription(){
+    [void]FindDescription() {
         $this.Description = $this.Statement
     }
-    [void]FindDescription([Bool]$Recurse){
+    [void]FindDescription([Bool]$Recurse) {
         $this.Description = $this.Statement
         $this.Children.FindDescription($Recurse)
     }
-    [void]FindDescription([Bool]$Recurse,[String]$KeyWord){
+    [void]FindDescription([Bool]$Recurse, [String]$KeyWord) {
         $this.Description = $this.Statement
         $this.Children.FindDescription($Recurse)
     }
@@ -605,24 +617,24 @@ Class SwitchNode : node {
 Class SwitchDefaultNode : node {
     [String]$Type = "SwitchDefault"
 
-    SwitchDefaultNode ([Ast]$e,[node]$j,[string]$d,[Ast[]]$f) : base ($e,$j) {
-        Write-Verbose ("Default Switch, statements count:"+$f.count)
+    SwitchDefaultNode ([Ast]$e, [node]$j, [string]$d, [Ast[]]$f) : base ($e, $j) {
+        Write-Verbose ("Default Switch, statements count:" + $f.count)
         $this.Statement = "Default for {0}" -f $d
         $this.Code = $this.raw.extent.Text
-        $this.FindChildren($f,$this)
+        $this.FindChildren($f, $this)
     }
 
     [String] graph () {
         ## Creation des noeuds de base
-        $string = "node "+$this.Nodeid+" -attributes @{Label='"+($this.Statement -replace "'|""",'')+"'}"
+        $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
         #$string = $string+";node "+$this.EndNodeid
-        $string = $string+";node "+$this.EndNodeid+" -attributes @{shape='point'}"
-        $string = $string +";Edge -from "+$this.EndNodeId+" -to "+$this.Parent.EndNodeid
+        $string = $string + ";node " + $this.EndNodeid + " -attributes @{shape='point'}"
+        $string = $string + ";Edge -from " + $this.EndNodeId + " -to " + $this.Parent.EndNodeid
 
         If ( $this.Children.count -gt 0 ) {
-            $string = $string +";Edge -from "+$this.NodeId+" -to "+$This.Children[0].NodeId
+            $string = $string + ";Edge -from " + $this.NodeId + " -to " + $This.Children[0].NodeId
             foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
-            $string = $string +";Edge -from "+$this.Children[-1].nodeId+" -to "+$this.EndNodeid
+            $string = $string + ";Edge -from " + $this.Children[-1].nodeId + " -to " + $this.EndNodeid
         }
 
 
@@ -635,26 +647,26 @@ Class SwitchDefaultNode : node {
 Class SwitchCaseNode : node {
     [String]$Type = "SwitchCase"
 
-    SwitchCaseNode ([Ast]$e,[node]$j,[string]$d,[Ast]$f) : base ($e,$j) {
-        $this.Statement = "Case: {1} for Switch {0}" -f $d,$this.raw.Extent.Text
+    SwitchCaseNode ([Ast]$e, [node]$j, [string]$d, [Ast]$f) : base ($e, $j) {
+        $this.Statement = "Case: {1} for Switch {0}" -f $d, $this.raw.Extent.Text
 
         $item1ToSearch = $this.raw.Value
-        $this.Code = ($this.raw.Parent.Clauses.where({$_.Item1.Value -eq $item1ToSearch})).Item2.Extent.Text
+        $this.Code = ($this.raw.Parent.Clauses.where( { $_.Item1.Value -eq $item1ToSearch })).Item2.Extent.Text
 
-        $this.FindChildren($f.Statements,$this)
+        $this.FindChildren($f.Statements, $this)
     }
 
     [String] graph () {
         ## Creation des noeuds de base
-        $string = "node "+$this.Nodeid+" -attributes @{Label='"+($this.Statement -replace "'|""",'')+"'}"
+        $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
         #$string = $string+";node "+$this.EndNodeid
-        $string = $string+";node "+$this.EndNodeid+" -attributes @{shape='point'}"
-        $string = $string +";Edge -from "+$this.EndNodeId+" -to "+$this.Parent.EndNodeid
+        $string = $string + ";node " + $this.EndNodeid + " -attributes @{shape='point'}"
+        $string = $string + ";Edge -from " + $this.EndNodeId + " -to " + $this.Parent.EndNodeid
 
         If ( $this.Children.count -gt 0 ) {
-            $string = $string +";Edge -from "+$this.NodeId+" -to "+$This.Children[0].NodeId
+            $string = $string + ";Edge -from " + $this.NodeId + " -to " + $This.Children[0].NodeId
             foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
-            $string = $string +";Edge -from "+$this.Children[-1].nodeId+" -to "+$this.EndNodeid
+            $string = $string + ";Edge -from " + $this.Children[-1].nodeId + " -to " + $this.EndNodeid
         }
 
 
@@ -669,15 +681,15 @@ Class ForeachNode : node {
 
     ForeachNode ([Ast]$e) : base ($e) {
         Write-Verbose "FORECH"
-        $this.Statement = "Foreach ( "+ $e.Variable.extent.Text +" in " + $e.Condition.extent.Text + " )"
+        $this.Statement = "Foreach ( " + $e.Variable.extent.Text + " in " + $e.Condition.extent.Text + " )"
         $this.code = $e.body.Extent.Text
-        $this.FindChildren($this.raw.Body.Statements,$this)
+        $this.FindChildren($this.raw.Body.Statements, $this)
     }
 
-    ForeachNode ([Ast]$e,[node]$f) : base ($e,$f) {
-        $this.Statement = "Foreach ( "+ $e.Variable.extent.Text +" in " + $e.Condition.extent.Text + " )"
+    ForeachNode ([Ast]$e, [node]$f) : base ($e, $f) {
+        $this.Statement = "Foreach ( " + $e.Variable.extent.Text + " in " + $e.Condition.extent.Text + " )"
         $this.code = $e.body.extent.Text
-        $this.FindChildren($this.raw.Body.Statements,$this)
+        $this.FindChildren($this.raw.Body.Statements, $this)
     }
 
     [string] graph () {
@@ -686,39 +698,40 @@ Class ForeachNode : node {
         $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
 
         ## Noeud et edge de base
-        $string = "node "+$this.Nodeid+" -attributes @{Label='"+($this.Statement -replace "'|""",'')+"'}"
-        $string = $string+";node "+$this.EndNodeid+" -attributes @{Label='Next "+$this.raw.Condition+"'}"
-        $string = $string +";Edge -from "+$this.EndNodeid+" -to "+$this.nodeId+" -attributes @{Label='Loop'}"
+        $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        $string = $string + ";node " + $this.EndNodeid + " -attributes @{Label='Next " + $this.raw.Condition + "'}"
+        $string = $string + ";Edge -from " + $this.EndNodeid + " -to " + $this.nodeId + " -attributes @{Label='Loop'}"
 
         ## si on a pas de previous node, et niveau 1
         If ( ($this.Depth -eq 1) -And ($null -eq $this.LinkedNodeId.Previous) ) {
             write-Verbose "Graph: Foreach: Drawing START NODE"
-            $string = $string +";Edge -from START -to "+$this.NodeId        
+            $string = $string + ";Edge -from START -to " + $this.NodeId        
         }
 
         ## si on a pas de next node, et niveau 1
         If ( ($this.Depth -eq 1) -And ($null -eq $EndIfNode.Next) ) {
             write-Verbose "Graph: Foreach: Drawing END NODE"
-            $string = $string +";Edge -from "+$this.EndNodeid+" -to END"
+            $string = $string + ";Edge -from " + $this.EndNodeid + " -to END"
         }
-        
+    
         If ( $this.Children.count -gt 0 ) {
-            $string = $string +";Edge -from "+$this.NodeId+" -to "+$this.Children[0].NodeId
+            $string = $string + ";Edge -from " + $this.NodeId + " -to " + $this.Children[0].NodeId
             foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
 
             ## Si le dernier noeud est de type LOOP
-            If ( $this.Children[-1].Type -in ("Foreach","For","While","DoWhile","DoUntil") ) {
-                $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid+" -attributes @{label='LoopEnded'}"
-            } Else {
-                write-Verbose "Graph: Foreach: Drawing EDGE from Child last value to EndNodeId"
-                $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid
+            If ( $this.Children[-1].Type -in ("Foreach", "For", "While", "DoWhile", "DoUntil") ) {
+                $string = $string + ";Edge -from " + $this.Children[-1].LinkedBrothers.Last.Value + " -to " + $this.EndNodeid + " -attributes @{label='LoopEnded'}"
             }
-            
+            Else {
+                write-Verbose "Graph: Foreach: Drawing EDGE from Child last value to EndNodeId"
+                $string = $string + ";Edge -from " + $this.Children[-1].LinkedBrothers.Last.Value + " -to " + $this.EndNodeid
+            }
+        
         }
 
         If ( $null -ne $EndIfNode.Next ) {
             Write-Verbose "Graph: If: there is a node after the EndIf"
-            $string = $string+ ";Edge -from "+$this.EndnodeId+" -to "+$EndIfNode.Next.Value+" -attributes @{label='LoopEnded'}"
+            $string = $string + ";Edge -from " + $this.EndnodeId + " -to " + $EndIfNode.Next.Value + " -attributes @{label='LoopEnded'}"
         }
 
         return $string
@@ -729,17 +742,17 @@ Class WhileNode : node {
     [string]$Type = "While"
 
     WhileNode ([Ast]$e) : base ($e) {
-        $this.Statement = "While ( "+ $e.Condition.extent.Text + " )"
+        $this.Statement = "While ( " + $e.Condition.extent.Text + " )"
         $this.code = $e.body.extent.Text
-        $this.FindChildren($this.raw.Body.Statements,$this)
-        
+        $this.FindChildren($this.raw.Body.Statements, $this)
+    
     }
 
-    WhileNode ([Ast]$e,[node]$f) : base ($e,$f) {
-        $this.Statement = "While ( "+ $e.Condition.extent.Text + " )"
+    WhileNode ([Ast]$e, [node]$f) : base ($e, $f) {
+        $this.Statement = "While ( " + $e.Condition.extent.Text + " )"
         $this.code = $e.body.extent.Text
-        $this.FindChildren($this.raw.Body.Statements,$this)
-        
+        $this.FindChildren($this.raw.Body.Statements, $this)
+    
     }
 
     [string] graph () {
@@ -748,38 +761,39 @@ Class WhileNode : node {
         $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
 
         ## on cree les bases
-        $string = "node "+$this.Nodeid+" -attributes @{Label='"+($this.Statement -replace "'|""",'')+"'}"
-        $string = $string+";node "+$this.EndNodeid+" -attributes @{Label='If "+$this.raw.Condition+"'}"
-        $string = $string +";Edge -from "+$this.EndNodeid+" -to "+$this.nodeId+" -attributes @{Label='True, Loop'}"
+        $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        $string = $string + ";node " + $this.EndNodeid + " -attributes @{Label='If " + $this.raw.Condition + "';shape='diamond'}"
+        $string = $string + ";Edge -from " + $this.EndNodeid + " -to " + $this.nodeId + " -attributes @{Label='True, Loop'}"
 
         ## si on a pas de previous node, et niveau 0
         If ( ($this.Depth -eq 1) -And ($null -eq $this.LinkedNodeId.Previous) ) {
             write-Verbose "Graph: While: Drawing START NODE"
-            $string = $string +";Edge -from START -to "+$this.NodeId        
+            $string = $string + ";Edge -from START -to " + $this.NodeId        
         }
 
         ## si on a pas de next node, et niveau 1
         If ( ($this.Depth -eq 1) -And ($null -eq $EndIfNode.Next) ) {
             write-Verbose "Graph: While: Drawing END NODE"
-            $string = $string +";Edge -from "+$this.EndNodeid+" -to END"
+            $string = $string + ";Edge -from " + $this.EndNodeid + " -to END"
         }
 
         If ( $this.Children.count -gt 0 ) {
             Write-Verbose "Graph: While: Graph while children"
-            $string = $string +";Edge -from "+$this.NodeId+" -to "+$this.Children[0].NodeId
+            $string = $string + ";Edge -from " + $this.NodeId + " -to " + $this.Children[0].NodeId
             foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
 
             ## Si le dernier noeud est de type LOOP
-            If ( $this.Children[-1].Type -in ("Foreach","For","While","DoWhile","DoUntil") ) {
-                $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid+" -attributes @{label='LoopEnded'}"
-            } Else {
-                $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid
+            If ( $this.Children[-1].Type -in ("Foreach", "For", "While", "DoWhile", "DoUntil") ) {
+                $string = $string + ";Edge -from " + $this.Children[-1].LinkedBrothers.Last.Value + " -to " + $this.EndNodeid + " -attributes @{label='LoopEnded'}"
+            }
+            Else {
+                $string = $string + ";Edge -from " + $this.Children[-1].LinkedBrothers.Last.Value + " -to " + $this.EndNodeid
             }
         }
 
         If ( $null -ne $EndIfNode.Next ) {
             Write-Verbose "Graph: While: there is a node after the EndWhile"
-            $string = $string+ ";Edge -from "+$this.EndnodeId+" -to "+$EndIfNode.Next.Value+" -attributes @{label='LoopEnded'}"
+            $string = $string + ";Edge -from " + $this.EndnodeId + " -to " + $EndIfNode.Next.Value + " -attributes @{label='LoopEnded'}"
         }
 
         return $string
@@ -790,15 +804,15 @@ Class ForNode : node {
     [string]$Type = "For"
 
     ForNode ([Ast]$e) : base ($e) {
-        $this.Statement = "For ( "+ $e.Condition.extent.Text + " )"
+        $this.Statement = "For ( " + $e.Condition.extent.Text + " )"
         $this.code = $e.body.extent.Text
-        $this.FindChildren($this.raw.Body.Statements,$this)
+        $this.FindChildren($this.raw.Body.Statements, $this)
     }
 
-    ForNode ([Ast]$e,[node]$f) : base($e,$f) {
-        $this.Statement = "For ( "+ $e.Condition.extent.Text + " )"
+    ForNode ([Ast]$e, [node]$f) : base($e, $f) {
+        $this.Statement = "For ( " + $e.Condition.extent.Text + " )"
         $this.code = $e.body.extent.Text
-        $this.FindChildren($this.raw.Body.Statements,$this)
+        $this.FindChildren($this.raw.Body.Statements, $this)
     }
 
     [string] graph () {
@@ -807,38 +821,39 @@ Class ForNode : node {
         $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
 
         ## on cree les bases
-        $string = "node "+$this.Nodeid+" -attributes @{Label='"+($this.Statement -replace "'|""",'')+"'}"
-        $string = $string+";node "+$this.EndNodeid+" -attributes @{Label='If "+$this.raw.Condition+"'}"
-        $string = $string +";Edge -from "+$this.EndNodeid+" -to "+$this.nodeId+" -attributes @{Label='"+$this.raw.Iterator.Extent.Text+"'}"
+        $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        $string = $string + ";node " + $this.EndNodeid + " -attributes @{Label='If " + $this.raw.Condition + "';shape='diamond'}"
+        $string = $string + ";Edge -from " + $this.EndNodeid + " -to " + $this.nodeId + " -attributes @{Label='" + $this.raw.Iterator.Extent.Text + "'}"
 
         ## si on a pas de previous node, et niveau 0
         If ( ($this.Depth -eq 1) -And ($null -eq $this.LinkedNodeId.Previous) ) {
             write-Verbose "Graph: For: Drawing START NODE"
-            $string = $string +";Edge -from START -to "+$this.NodeId        
+            $string = $string + ";Edge -from START -to " + $this.NodeId        
         }
 
         ## si on a pas de next node, et niveau 1
         If ( ($this.Depth -eq 1) -And ($null -eq $EndIfNode.Next) ) {
             write-Verbose "Graph: For: Drawing END NODE"
-            $string = $string +";Edge -from "+$this.EndNodeid+" -to END"
+            $string = $string + ";Edge -from " + $this.EndNodeid + " -to END"
         }
 
         If ( $this.Children.count -gt 0 ) {
             Write-Verbose "Graph: For: Graph while children"
-            $string = $string +";Edge -from "+$this.NodeId+" -to "+$this.Children[0].NodeId
+            $string = $string + ";Edge -from " + $this.NodeId + " -to " + $this.Children[0].NodeId
             foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
 
             ## Si le dernier noeud est de type LOOP
-            If ( $this.Children[-1].Type -in ("Foreach","For","While","DoWhile","DoUntil") ) {
-                $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid+" -attributes @{label='LoopEnded'}"
-            } Else {
-                $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid
+            If ( $this.Children[-1].Type -in ("Foreach", "For", "While", "DoWhile", "DoUntil") ) {
+                $string = $string + ";Edge -from " + $this.Children[-1].LinkedBrothers.Last.Value + " -to " + $this.EndNodeid + " -attributes @{label='LoopEnded'}"
+            }
+            Else {
+                $string = $string + ";Edge -from " + $this.Children[-1].LinkedBrothers.Last.Value + " -to " + $this.EndNodeid
             }
         }
 
         If ( $null -ne $EndIfNode.Next ) {
             Write-Verbose "Graph: For: there is a node after the EndFor"
-            $string = $string+ ";Edge -from "+$this.EndnodeId+" -to "+$EndIfNode.Next.Value+" -attributes @{label='LoopEnded'}"
+            $string = $string + ";Edge -from " + $this.EndnodeId + " -to " + $EndIfNode.Next.Value + " -attributes @{label='LoopEnded'}"
         }
         return $string
     }
@@ -848,15 +863,15 @@ Class DoUntilNode : node {
     [string]$Type = "DoUntil"
 
     DoUntilNode ([Ast]$e) : base($e) {
-        $this.Statement = "Do Until ( "+ $e.Condition.extent.Text + " )"
+        $this.Statement = "Do Until ( " + $e.Condition.extent.Text + " )"
         $this.code = $e.body.extent.Text
-        $this.FindChildren($this.raw.Body.Statements,$this)
+        $this.FindChildren($this.raw.Body.Statements, $this)
     }
 
-    DoUntilNode ([Ast]$e,[node]$f) : base($e,$f) {
-        $this.Statement = "Do Until ( "+ $e.Condition.extent.Text + " )"
+    DoUntilNode ([Ast]$e, [node]$f) : base($e, $f) {
+        $this.Statement = "Do Until ( " + $e.Condition.extent.Text + " )"
         $this.code = $e.body.extent.Text
-        $this.FindChildren($this.raw.Body.Statements,$this)
+        $this.FindChildren($this.raw.Body.Statements, $this)
     }
 
     [string] graph () {
@@ -865,38 +880,39 @@ Class DoUntilNode : node {
         $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
 
         ## on cree les bases
-        $string = "node "+$this.Nodeid+" -attributes @{Label='"+($this.Statement -replace "'|""",'')+"'}"
-        $string = $string+";node "+$this.EndNodeid+" -attributes @{Label='Is "+$this.raw.Condition+"'}"
-        $string = $string +";Edge -from "+$this.EndNodeid+" -to "+$this.nodeId+" -attributes @{Label='False, Loop'}"
+        $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        $string = $string + ";node " + $this.EndNodeid + " -attributes @{Label='Is " + $this.raw.Condition + "';shape='diamond'}"
+        $string = $string + ";Edge -from " + $this.EndNodeid + " -to " + $this.nodeId + " -attributes @{Label='False, Loop'}"
 
         ## si on a pas de previous node, et niveau 0
         If ( ($this.Depth -eq 1) -And ($null -eq $this.LinkedNodeId.Previous) ) {
             write-Verbose "Graph: DoUntil: Drawing START NODE"
-            $string = $string +";Edge -from START -to "+$this.NodeId        
+            $string = $string + ";Edge -from START -to " + $this.NodeId        
         }
 
         ## si on a pas de next node, et niveau 1
         If ( ($this.Depth -eq 1) -And ($null -eq $EndIfNode.Next) ) {
             write-Verbose "Graph: DoUntil: Drawing END NODE"
-            $string = $string +";Edge -from "+$this.EndNodeid+" -to END"
+            $string = $string + ";Edge -from " + $this.EndNodeid + " -to END"
         }
 
         If ( $this.Children.count -gt 0 ) {
             Write-Verbose "Graph: DoUntil: Graph DoUntil children"
-            $string = $string +";Edge -from "+$this.NodeId+" -to "+$this.Children[0].NodeId
+            $string = $string + ";Edge -from " + $this.NodeId + " -to " + $this.Children[0].NodeId
             foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
 
             ## Si le dernier noeud est de type LOOP
-            If ( $this.Children[-1].Type -in ("Foreach","For","While","DoWhile","DoUntil") ) {
-                $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid+" -attributes @{label='LoopEnded'}"
-            } Else {
-                $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid
+            If ( $this.Children[-1].Type -in ("Foreach", "For", "While", "DoWhile", "DoUntil") ) {
+                $string = $string + ";Edge -from " + $this.Children[-1].LinkedBrothers.Last.Value + " -to " + $this.EndNodeid + " -attributes @{label='LoopEnded'}"
+            }
+            Else {
+                $string = $string + ";Edge -from " + $this.Children[-1].LinkedBrothers.Last.Value + " -to " + $this.EndNodeid
             }
         }
 
         If ( $null -ne $EndIfNode.Next ) {
             Write-Verbose "Graph: DoUntil: there is a node after the EndDoUntil"
-            $string = $string+ ";Edge -from "+$this.EndnodeId+" -to "+$EndIfNode.Next.Value+" -attributes @{label='LoopEnded'}"
+            $string = $string + ";Edge -from " + $this.EndnodeId + " -to " + $EndIfNode.Next.Value + " -attributes @{label='LoopEnded'}"
         }
 
         return $string
@@ -907,15 +923,15 @@ Class DoWhileNode : node {
     [string]$Type = "DoWhile"
 
     DoWhileNode ([Ast]$e) : base($e) {
-        $this.Statement = "Do While ( "+ $e.Condition.extent.Text + " )"
+        $this.Statement = "Do While ( " + $e.Condition.extent.Text + " )"
         $this.code = $e.body.extent.Text
-        $this.FindChildren($this.raw.Body.Statements,$this)
+        $this.FindChildren($this.raw.Body.Statements, $this)
     }
 
-    DoWhileNode ([Ast]$e,[node]$f) : base($e,$f) {
-        $this.Statement = "Do While ( "+ $e.Condition.extent.Text + " )"
+    DoWhileNode ([Ast]$e, [node]$f) : base($e, $f) {
+        $this.Statement = "Do While ( " + $e.Condition.extent.Text + " )"
         $this.code = $e.body.extent.Text
-        $this.FindChildren($this.raw.Body.Statements,$this)
+        $this.FindChildren($this.raw.Body.Statements, $this)
     }
 
     [string] graph () {
@@ -924,38 +940,39 @@ Class DoWhileNode : node {
         $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
 
         ## on cree les bases
-        $string = "node "+$this.Nodeid+" -attributes @{Label='"+($this.Statement -replace "'|""",'')+"'}"
-        $string = $string+";node "+$this.EndNodeid+" -attributes @{Label='If "+$this.raw.Condition+"'}"
-        $string = $string +";Edge -from "+$this.EndNodeid+" -to "+$this.nodeId+" -attributes @{Label='True, Loop'}"
+        $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        $string = $string + ";node " + $this.EndNodeid + " -attributes @{Label='If " + $this.raw.Condition + "';shape='diamond'}"
+        $string = $string + ";Edge -from " + $this.EndNodeid + " -to " + $this.nodeId + " -attributes @{Label='True, Loop'}"
 
         ## si on a pas de previous node, et niveau 0
         If ( ($this.Depth -eq 1) -And ($null -eq $this.LinkedNodeId.Previous) ) {
             write-Verbose "Graph: DoWhile: Drawing START NODE"
-            $string = $string +";Edge -from START -to "+$this.NodeId        
+            $string = $string + ";Edge -from START -to " + $this.NodeId        
         }
 
         ## si on a pas de next node, et niveau 1
         If ( ($this.Depth -eq 1) -And ($null -eq $EndIfNode.Next) ) {
             write-Verbose "Graph: DoWhile: Drawing END NODE"
-            $string = $string +";Edge -from "+$this.EndNodeid+" -to END"
+            $string = $string + ";Edge -from " + $this.EndNodeid + " -to END"
         }
 
         If ( $this.Children.count -gt 0 ) {
             Write-Verbose "Graph: DoWhile: Graph DoWhile children"
-            $string = $string +";Edge -from "+$this.NodeId+" -to "+$this.Children[0].NodeId
+            $string = $string + ";Edge -from " + $this.NodeId + " -to " + $this.Children[0].NodeId
             foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
 
             ## Si le dernier noeud est de type LOOP
-            If ( $this.Children[-1].Type -in ("Foreach","For","While","DoWhile","DoUntil") ) {
-                $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid+" -attributes @{label='LoopEnded'}"
-            } Else {
-                $string = $string +";Edge -from "+$this.Children[-1].LinkedBrothers.Last.Value+" -to "+$this.EndNodeid
+            If ( $this.Children[-1].Type -in ("Foreach", "For", "While", "DoWhile", "DoUntil") ) {
+                $string = $string + ";Edge -from " + $this.Children[-1].LinkedBrothers.Last.Value + " -to " + $this.EndNodeid + " -attributes @{label='LoopEnded'}"
+            }
+            Else {
+                $string = $string + ";Edge -from " + $this.Children[-1].LinkedBrothers.Last.Value + " -to " + $this.EndNodeid
             }
         }
 
         If ( $null -ne $EndIfNode.Next ) {
             Write-Verbose "Graph: DoWhile: there is a node after the EndDoWhile"
-            $string = $string+ ";Edge -from "+$this.EndnodeId+" -to "+$EndIfNode.Next.Value+" -attributes @{label='LoopEnded'}"
+            $string = $string + ";Edge -from " + $this.EndnodeId + " -to " + $EndIfNode.Next.Value + " -attributes @{label='LoopEnded'}"
         }
 
         return $string
@@ -964,18 +981,18 @@ Class DoWhileNode : node {
 
 Class BlockProcess : node {
     [string]$Type = "BlockProcess"
-    
+
     BlockProcess () : base () {
         $this.Statement = "ProcessBlock"
     }
 
-    [string] graph (){
-        $string = "node "+$this.Nodeid+" -attributes @{Label='"+($this.Statement -replace "'|""",'')+"'}"
+    [string] graph () {
+        $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "'}"
         return $string
     }
 
     ## On cherche pas de description
-    [void]FindDescription(){}
-    [void]FindDescription([Bool]$Recurse){}
-    [void]FindDescription([Bool]$Recurse,[String]$KeyWord){}
+    [void]FindDescription() { }
+    [void]FindDescription([Bool]$Recurse) { }
+    [void]FindDescription([Bool]$Recurse, [String]$KeyWord) { }
 }

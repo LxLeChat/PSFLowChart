@@ -1,4 +1,4 @@
-function Find-FCNodes {
+function Set-FCNodeDescription {
     <#
     .SYNOPSIS
         Short description
@@ -14,11 +14,10 @@ function Find-FCNodes {
     .NOTES
         General notes
     #>
-
     [CmdletBinding()]
     param (
-        [String]$File,
-        [Switch]$FindDescription
+        [node[]]$Node,
+        [Switch]$Recurse
     )
     
     begin {
@@ -26,9 +25,8 @@ function Find-FCNodes {
     }
     
     process {
-        $FilePath = Get-Item $File
-        $x=[nodeutility]::ParseFile($FilePath.FullName)
-        return ,$x
+        $Node.SetDescription($Recurse)
+        return ,$Node
     }
     
     end {

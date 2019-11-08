@@ -13,7 +13,7 @@ function New-FCGraph {
         $s = $string | out-string
         $plop = [scriptblock]::Create($s).invoke()
         $graph = graph "lol" {$plop}
-        $graph | show-psgraph
+        $graph
     }
     
     end {
