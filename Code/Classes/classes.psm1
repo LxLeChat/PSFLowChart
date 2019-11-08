@@ -197,7 +197,7 @@ class node {
     [void] FindDescription () {
         write-Verbose "$($this.Type)"
         $comment = [System.Management.Automation.PSParser]::Tokenize($this.Code,[ref]$null) | Where-Object {$_.type -eq "comment" -And $_.StartLine -eq 2}
-        $this.Description = $this.Statement
+        # $this.Description = $this.Statement
 
         If ( $comment ) {
             If ( $comment[0].Content -match "Description:(?<description>\s?[\w\s]+)" ) {
@@ -210,7 +210,7 @@ class node {
     [void] FindDescription ([Bool]$Recurse) {
         write-Verbose "$($this.Type)"
         $comment = [System.Management.Automation.PSParser]::Tokenize($this.Code,[ref]$null) | Where-Object {$_.type -eq "comment" -And $_.StartLine -eq 2}
-        $this.Description = $this.Statement
+        # $this.Description = $this.Statement
 
         If ( $comment ) {
             If ( $comment[0].Content -match "Description:(?<description>\s?[\w\s]+)" ) {
@@ -223,7 +223,7 @@ class node {
 
     [void] FindDescription ([Bool]$Recurse,[string]$KeyWord) {
         $comment = [System.Management.Automation.PSParser]::Tokenize($this.Code,[ref]$null) | Where-Object {$_.type -eq "comment" -And $_.StartLine -eq 2}
-        $this.Description = $this.Statement
+        # $this.Description = $this.Statement
 
         If ( $comment ) {
             If ( $comment[0].Content -match "$($KeyWord):(?<description>\s?[\w\s]+)" ) {
@@ -235,24 +235,29 @@ class node {
         
     }
 
-    ## a revoir, avec comme base $code !
-    [void] SetDescription () {
+    ## Pour Setter la description
+    [void] SetDescription ([Bool]$Recurse) {
+
+        $this.FindDescription()
+
         If ( $null -eq $this.Description ) {
-            $this.Description = Read-Host -Prompt $("Description for {0}" -f $this.Statement)
-        } Else { 
-            $d = Read-Host -Prompt $("Actual description for {0} is: {1}" -f $this.Statement,$this.Description)
-            if ( $null -ne $d ) {
-                $this.Description = $d
-            } else {
+            $d = Read-Host -Prompt $("Set description for {0}" -f $this.Statement)
+        } Else {
+            $d = Read-Host -Prompt $("Actual description for {0} is {1}" -f $this.Statement,$this.Description)
+        }
+
+        if ( $null -ne $d ) {
+            $this.Description = $d
+        } else {
+            If ( $this.Description -eq $this.Statement ) {
                 $this.Description = $this.Statement
             }
-         }
-        
-        # USE code Property !
-        if ( $null -ne $this.Description ) {
-            #$f = (($this.raw.Extent.Text -split '\r?\n')[0]).Length
-            #$g = "<#`n    DiagramDescription: $($this.Description))`n#>`n"
-            #$this.NewContent = $this.raw.Extent.Text.Insert($f+2,$g)
+        }
+
+        If ( $Recurse ) {
+            If ( $this.Children ) {
+                $this.Children.SetDescription($True)
+            }
         }
         
     }
@@ -584,11 +589,15 @@ Class SwitchNode : node {
     }
 
     ## On cherche pas de description
-    [void]FindDescription(){}
+    [void]FindDescription(){
+        $this.Description = $this.Statement
+    }
     [void]FindDescription([Bool]$Recurse){
+        $this.Description = $this.Statement
         $this.Children.FindDescription($Recurse)
     }
     [void]FindDescription([Bool]$Recurse,[String]$KeyWord){
+        $this.Description = $this.Statement
         $this.Children.FindDescription($Recurse)
     }
 }
