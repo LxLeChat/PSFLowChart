@@ -195,17 +195,44 @@ class node {
     }
 
     [void] FindDescription () {
-        $tokens=@()
-        [Parser]::ParseInput($this.code,[ref]$tokens,[ref]$null)
-        
-        $c = $tokens | Where-Object kind -eq "comment"
-        If ( $c.count -gt 0 ) {
-            If ( $c[0].text -match 'DiagramDescription:(?<description>\s?[\w\s]+)' ) {
+        write-Verbose "$($this.Type)"
+        $comment = [System.Management.Automation.PSParser]::Tokenize($this.Code,[ref]$null) | Where-Object {$_.type -eq "comment" -And $_.StartLine -eq 2}
+        $this.Description = $this.Statement
+
+        If ( $comment ) {
+            If ( $comment[0].Content -match "Description:(?<description>\s?[\w\s]+)" ) {
                 $this.Description = $Matches.description.Trim() 
-            } Else {
-                $this.Description = $this.Statement
             }
         }
+        
+    }
+
+    [void] FindDescription ([Bool]$Recurse) {
+        write-Verbose "$($this.Type)"
+        $comment = [System.Management.Automation.PSParser]::Tokenize($this.Code,[ref]$null) | Where-Object {$_.type -eq "comment" -And $_.StartLine -eq 2}
+        $this.Description = $this.Statement
+
+        If ( $comment ) {
+            If ( $comment[0].Content -match "Description:(?<description>\s?[\w\s]+)" ) {
+                $this.Description = $Matches.description.Trim() 
+            }
+        }
+        $this.Children.FindDescription($Recurse)
+        
+    }
+
+    [void] FindDescription ([Bool]$Recurse,[string]$KeyWord) {
+        $comment = [System.Management.Automation.PSParser]::Tokenize($this.Code,[ref]$null) | Where-Object {$_.type -eq "comment" -And $_.StartLine -eq 2}
+        $this.Description = $this.Statement
+
+        If ( $comment ) {
+            If ( $comment[0].Content -match "$($KeyWord):(?<description>\s?[\w\s]+)" ) {
+                $this.Description = $Matches.description.Trim() 
+            }
+        }
+        
+        $this.Children.FindDescription($Recurse,$KeyWord)
+        
     }
 
     ## a revoir, avec comme base $code !
@@ -928,4 +955,8 @@ Class BlockProcess : node {
         $string = "node "+$this.Nodeid+" -attributes @{Label='"+($this.Statement -replace "'|""",'')+"'}"
         return $string
     }
+
+    [void]FindDescription(){}
+    [void]FindDescription([Bool]$Recurse){}
+    [void]FindDescription([Bool]$Recurse,[String]$KeyWord){}
 }
