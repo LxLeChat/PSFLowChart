@@ -582,6 +582,15 @@ Class SwitchNode : node {
         }
         return $string
     }
+
+    ## On cherche pas de description
+    [void]FindDescription(){}
+    [void]FindDescription([Bool]$Recurse){
+        $this.Children.FindDescription($Recurse)
+    }
+    [void]FindDescription([Bool]$Recurse,[String]$KeyWord){
+        $this.Children.FindDescription($Recurse)
+    }
 }
 
 Class SwitchDefaultNode : node {
@@ -956,6 +965,7 @@ Class BlockProcess : node {
         return $string
     }
 
+    ## On cherche pas de description
     [void]FindDescription(){}
     [void]FindDescription([Bool]$Recurse){}
     [void]FindDescription([Bool]$Recurse,[String]$KeyWord){}
