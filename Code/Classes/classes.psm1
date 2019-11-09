@@ -384,7 +384,9 @@ Class IfNode : node {
         $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
 
         ## Creation des noeuds de base
+        write-verbose "GRAPH: IF: DRAWING IF NODE"
         $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        write-verbose "GRAPH: IF: DRAWING ENDIF NODE"
         $string = $string + ";node " + $this.EndNodeid + " -attributes @{shape='point'}"
 
         ## si on a pas de previous node, et niveau 1
@@ -731,7 +733,12 @@ Class ForeachNode : node {
 
         If ( $null -ne $EndIfNode.Next ) {
             Write-Verbose "Graph: If: there is a node after the EndIf"
-            $string = $string + ";Edge -from " + $this.EndnodeId + " -to " + $EndIfNode.Next.Value + " -attributes @{label='LoopEnded'}"
+            ## Si le noeud suivant est un else/elseif, c'est que dans tous les cas on est le dernier noeud dans un if/else/elseif
+            ## et que du coup le edge a déja été dessiné par le IF entre la fin de la boucle et le endif
+            $NextNode = $this.parent.Children.where({$_.NodeID -eq $EndIfNode.Next.Value})
+            If ( !$NextNode.Type -in ("If","Else","ElseIf") ) {
+                $string = $string + ";Edge -from " + $this.EndnodeId + " -to " + $EndIfNode.Next.Value + " -attributes @{label='LoopEnded'}"
+            }
         }
 
         return $string
@@ -793,7 +800,12 @@ Class WhileNode : node {
 
         If ( $null -ne $EndIfNode.Next ) {
             Write-Verbose "Graph: While: there is a node after the EndWhile"
-            $string = $string + ";Edge -from " + $this.EndnodeId + " -to " + $EndIfNode.Next.Value + " -attributes @{label='LoopEnded'}"
+            # Si le noeud suivant est un else/elseif, c'est que dans tous les cas on est le dernier noeud dans un if/else/elseif
+            ## et que du coup le edge a déja été dessiné par le IF entre la fin de la boucle et le endif
+            $NextNode = $this.parent.Children.where({$_.NodeID -eq $EndIfNode.Next.Value})
+            If ( !$NextNode.Type -in ("If","Else","ElseIf") ) {
+                $string = $string + ";Edge -from " + $this.EndnodeId + " -to " + $EndIfNode.Next.Value + " -attributes @{label='LoopEnded'}"
+            }
         }
 
         return $string
@@ -852,8 +864,12 @@ Class ForNode : node {
         }
 
         If ( $null -ne $EndIfNode.Next ) {
-            Write-Verbose "Graph: For: there is a node after the EndFor"
-            $string = $string + ";Edge -from " + $this.EndnodeId + " -to " + $EndIfNode.Next.Value + " -attributes @{label='LoopEnded'}"
+            # Si le noeud suivant est un else/elseif, c'est que dans tous les cas on est le dernier noeud dans un if/else/elseif
+            ## et que du coup le edge a déja été dessiné par le IF entre la fin de la boucle et le endif
+            $NextNode = $this.parent.Children.where({$_.NodeID -eq $EndIfNode.Next.Value})
+            If ( !$NextNode.Type -in ("If","Else","ElseIf") ) {
+                $string = $string + ";Edge -from " + $this.EndnodeId + " -to " + $EndIfNode.Next.Value + " -attributes @{label='LoopEnded'}"
+            }
         }
         return $string
     }
@@ -911,8 +927,12 @@ Class DoUntilNode : node {
         }
 
         If ( $null -ne $EndIfNode.Next ) {
-            Write-Verbose "Graph: DoUntil: there is a node after the EndDoUntil"
-            $string = $string + ";Edge -from " + $this.EndnodeId + " -to " + $EndIfNode.Next.Value + " -attributes @{label='LoopEnded'}"
+            # Si le noeud suivant est un else/elseif, c'est que dans tous les cas on est le dernier noeud dans un if/else/elseif
+            ## et que du coup le edge a déja été dessiné par le IF entre la fin de la boucle et le endif
+            $NextNode = $this.parent.Children.where({$_.NodeID -eq $EndIfNode.Next.Value})
+            If ( !$NextNode.Type -in ("If","Else","ElseIf") ) {
+                $string = $string + ";Edge -from " + $this.EndnodeId + " -to " + $EndIfNode.Next.Value + " -attributes @{label='LoopEnded'}"
+            }
         }
 
         return $string
@@ -971,8 +991,12 @@ Class DoWhileNode : node {
         }
 
         If ( $null -ne $EndIfNode.Next ) {
-            Write-Verbose "Graph: DoWhile: there is a node after the EndDoWhile"
-            $string = $string + ";Edge -from " + $this.EndnodeId + " -to " + $EndIfNode.Next.Value + " -attributes @{label='LoopEnded'}"
+            # Si le noeud suivant est un else/elseif, c'est que dans tous les cas on est le dernier noeud dans un if/else/elseif
+            ## et que du coup le edge a déja été dessiné par le IF entre la fin de la boucle et le endif
+            $NextNode = $this.parent.Children.where({$_.NodeID -eq $EndIfNode.Next.Value})
+            If ( !$NextNode.Type -in ("If","Else","ElseIf") ) {
+                $string = $string + ";Edge -from " + $this.EndnodeId + " -to " + $EndIfNode.Next.Value + " -attributes @{label='LoopEnded'}"
+            }
         }
 
         return $string

@@ -384,7 +384,9 @@ Class IfNode : node {
         $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
 
         ## Creation des noeuds de base
+        write-verbose "GRAPH: IF: DRAWING IF NODE"
         $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        write-verbose "GRAPH: IF: DRAWING ENDIF NODE"
         $string = $string + ";node " + $this.EndNodeid + " -attributes @{shape='point'}"
 
         ## si on a pas de previous node, et niveau 1
@@ -1046,9 +1048,10 @@ function New-FCGraph {
     process {
         $string=$node.graph()
         $s = $string | out-string
-        $plop = [scriptblock]::Create($s).invoke()
-        $graph = graph "lol" {$plop}
-        $graph
+        return $s
+        # $plop = [scriptblock]::Create($s).invoke()
+        # $graph = graph "lol" {$plop}
+        # $graph
     }
     
     end {
