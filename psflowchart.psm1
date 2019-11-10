@@ -113,6 +113,13 @@ class node {
         $this.EndNodeid = $this.Nodeid
     }
 
+    node ([node]$f) {
+        $this.SetDepth()
+        $this.Guid()
+        $this.EndNodeid = $this.Nodeid
+        $this.Parent = $f
+    }
+
     node ([Ast]$e) {
         $this.raw = $e
         $this.file = $e.extent.file
@@ -137,25 +144,40 @@ class node {
     [void] FindChildren ([Ast[]]$e, [node]$f) {
         $LinkedList = [System.Collections.Generic.LinkedList[string]]::new()
     
-        foreach ( $d in $e ) {
-            If ( $d.GetType() -in [nodeutility]::GetASTitems() ) {
-                $node = [nodeutility]::SetNode($d, $f)
+        $i=0
+        $tmp = $false
+        while ( $i -lt $e.count ) {
+            If ( $e[$i].GetType() -in [nodeutility]::GetASTitems() ) {
+                Write-Verbose "FINDCHILDREN: AST Type NODE TROUVEE, $($this.Statement)"
+                $tmp = $true
+                $node = [nodeutility]::SetNode($e[$i], $f)
                 $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
                 $LinkedList.AddLast($LinkedNode)
                 $node.LinkedBrothers = $LinkedList
                 $node.LinkedNodeId = $LinkedNode
                 $this.Children.add($node)
-
                 If ( $node.Type -NotIn ("Else", "ElseIf", "SwitchCase", "SwitchDefault")) {
                     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_" + $node.Nodeid)
                     $LinkedList.AddAfter($LinkedNode, $LinkedNodeNext)
                 }
-
+            } else {
+                Write-Verbose "FINDCHILDREN: AST Type NOK, TEST PROCESS, $($this.Statement)"
+                if ( ( $tmp -and ($i -gt 0) ) -or ( ($i -eq 0) -or ($i -eq $e.count) ) ) {
+                    Write-Verbose "FINDCHILDREN: AST Type NOK CACA BOUDIN, $($this.Statement)"
+                    $tmp = $false
+                    $node = [BlockProcess]::new($f)
+                    $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
+                    $LinkedList.AddLast($LinkedNode)
+                    $node.LinkedBrothers = $LinkedList
+                    $node.LinkedNodeId = $LinkedNode
+                    $this.Children.add($node)
+                }
             }
+            $i++
         }
 
         If ( $this.Children.count -eq 0 ) {
-            $node = [BlockProcess]::new()
+            $node = [BlockProcess]::new($f)
             $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
             $LinkedList.AddLast($LinkedNode)
             $node.LinkedBrothers = $LinkedList
@@ -167,25 +189,40 @@ class node {
     ## override pour le if
     [void] FindChildren ([Ast[]]$e, [node]$f, $LinkedList) {
     
-        foreach ( $d in $e ) {
-            If ( $d.GetType() -in [nodeutility]::GetASTitems() ) {
-                $node = [nodeutility]::SetNode($d, $f)
+        $i=0
+        $tmp = $false
+        while ( $i -lt $e.count ) {
+            If ( $e[$i].GetType() -in [nodeutility]::GetASTitems() ) {
+                Write-Verbose "FINDCHILDREN: AST Type NODE TROUVEE, $($this.Statement)"
+                $tmp = $true
+                $node = [nodeutility]::SetNode($e[$i], $f)
                 $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
                 $LinkedList.AddLast($LinkedNode)
                 $node.LinkedBrothers = $LinkedList
                 $node.LinkedNodeId = $LinkedNode
                 $this.Children.add($node)
-
                 If ( $node.Type -NotIn ("Else", "ElseIf", "SwitchCase", "SwitchDefault")) {
                     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_" + $node.Nodeid)
                     $LinkedList.AddAfter($LinkedNode, $LinkedNodeNext)
                 }
-
+            } else {
+                Write-Verbose "FINDCHILDREN: AST Type NOK, TEST PROCESS, $($this.Statement)"
+                if ( ( $tmp -and ($i -gt 0) ) -or ( ($i -eq 0) -or ($i -eq $e.count) ) ) {
+                    Write-Verbose "FINDCHILDREN: AST Type NOK CACA BOUDIN, $($this.Statement)"
+                    $tmp = $false
+                    $node = [BlockProcess]::new($f)
+                    $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
+                    $LinkedList.AddLast($LinkedNode)
+                    $node.LinkedBrothers = $LinkedList
+                    $node.LinkedNodeId = $LinkedNode
+                    $this.Children.add($node)
+                }
             }
+            $i++
         }
 
         If ( $this.Children.count -eq 0 ) {
-            $node = [BlockProcess]::new()
+            $node = [BlockProcess]::new($f)
             $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
             $LinkedList.AddLast($LinkedNode)
             $node.LinkedBrothers = $LinkedList
@@ -1092,7 +1129,7 @@ Class DoWhileNode : node {
 Class BlockProcess : node {
     [string]$Type = "BlockProcess"
 
-    BlockProcess () : base () {
+    BlockProcess ($f) : base ($f) {
         $this.Statement = "ProcessBlock"
     }
 
@@ -1103,6 +1140,17 @@ Class BlockProcess : node {
         } Else {
             $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
         }
+
+        ## OK çA MARCHE PAS PARCEQUE BLOCKPROCESS N A PAS DE PARENT !
+        if ( $null -ne $this.LinkedNodeId.next ) {
+            $NextNode = $this.parent.Children.where({$_.NodeID -eq $this.LinkedNodeId.next.Value})
+            If ( $NextNode.Type -notlike "Else*" ) {
+                Write-Verbose "Graph: foreach: the next node is not a else/elseif"
+                $string = $string + ";Edge -from " + $this.EndnodeId + " -to " + $this.LinkedNodeId.next.Value
+            }
+            
+        }
+
         return $string
     }
 
