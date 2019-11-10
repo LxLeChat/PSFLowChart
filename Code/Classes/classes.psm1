@@ -1143,7 +1143,7 @@ Class BlockProcess : node {
 
         ## OK çA MARCHE PAS PARCEQUE BLOCKPROCESS N A PAS DE PARENT !
         if ( $null -ne $this.LinkedNodeId.next ) {
-            $NextNode = $this.parent.Children.where({$_.NodeID -eq $this.LinkedNodeId.next})
+            $NextNode = $this.parent.Children.where({$_.NodeID -eq $this.LinkedNodeId.next.Value})
             If ( $NextNode.Type -notlike "Else*" ) {
                 Write-Verbose "Graph: foreach: the next node is not a else/elseif"
                 $string = $string + ";Edge -from " + $this.EndnodeId + " -to " + $this.LinkedNodeId.next.Value
