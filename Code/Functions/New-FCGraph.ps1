@@ -1,7 +1,8 @@
 function New-FCGraph {
     [CmdletBinding()]
     param (
-        [node[]]$node
+        [node[]]$node,
+        [switch]$DescriptionAsLabel
     )
     
     begin {
@@ -9,11 +10,15 @@ function New-FCGraph {
     }
     
     process {
-        $string=$node.graph()
+        If ( $DescriptionAsLabel ) {
+            $node.FindDescription($True)
+        }
+
+        $string=$node.graph($DescriptionAsLabel)
         $s = $string | out-string
         $plop = [scriptblock]::Create($s).invoke()
         $graph = graph "lol" {$plop}
-        $graph
+        $graph | show-psgraph
     }
     
     end {

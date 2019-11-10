@@ -113,6 +113,13 @@ class node {
         $this.EndNodeid = $this.Nodeid
     }
 
+    node ([node]$f) {
+        $this.SetDepth()
+        $this.Guid()
+        $this.EndNodeid = $this.Nodeid
+        $this.Parent = $f
+    }
+
     node ([Ast]$e) {
         $this.raw = $e
         $this.file = $e.extent.file
@@ -137,25 +144,40 @@ class node {
     [void] FindChildren ([Ast[]]$e, [node]$f) {
         $LinkedList = [System.Collections.Generic.LinkedList[string]]::new()
     
-        foreach ( $d in $e ) {
-            If ( $d.GetType() -in [nodeutility]::GetASTitems() ) {
-                $node = [nodeutility]::SetNode($d, $f)
+        $i=0
+        $tmp = $false
+        while ( $i -lt $e.count ) {
+            If ( $e[$i].GetType() -in [nodeutility]::GetASTitems() ) {
+                Write-Verbose "FINDCHILDREN: AST Type NODE TROUVEE, $($this.Statement)"
+                $tmp = $true
+                $node = [nodeutility]::SetNode($e[$i], $f)
                 $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
                 $LinkedList.AddLast($LinkedNode)
                 $node.LinkedBrothers = $LinkedList
                 $node.LinkedNodeId = $LinkedNode
                 $this.Children.add($node)
-
                 If ( $node.Type -NotIn ("Else", "ElseIf", "SwitchCase", "SwitchDefault")) {
                     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_" + $node.Nodeid)
                     $LinkedList.AddAfter($LinkedNode, $LinkedNodeNext)
                 }
-
+            } else {
+                Write-Verbose "FINDCHILDREN: AST Type NOK, TEST PROCESS, $($this.Statement)"
+                if ( ( $tmp -and ($i -gt 0) ) -or ( ($i -eq 0) -or ($i -eq $e.count) ) ) {
+                    Write-Verbose "FINDCHILDREN: AST Type NOK CACA BOUDIN, $($this.Statement)"
+                    $tmp = $false
+                    $node = [BlockProcess]::new($f)
+                    $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
+                    $LinkedList.AddLast($LinkedNode)
+                    $node.LinkedBrothers = $LinkedList
+                    $node.LinkedNodeId = $LinkedNode
+                    $this.Children.add($node)
+                }
             }
+            $i++
         }
 
         If ( $this.Children.count -eq 0 ) {
-            $node = [BlockProcess]::new()
+            $node = [BlockProcess]::new($f)
             $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
             $LinkedList.AddLast($LinkedNode)
             $node.LinkedBrothers = $LinkedList
@@ -167,25 +189,40 @@ class node {
     ## override pour le if
     [void] FindChildren ([Ast[]]$e, [node]$f, $LinkedList) {
     
-        foreach ( $d in $e ) {
-            If ( $d.GetType() -in [nodeutility]::GetASTitems() ) {
-                $node = [nodeutility]::SetNode($d, $f)
+        $i=0
+        $tmp = $false
+        while ( $i -lt $e.count ) {
+            If ( $e[$i].GetType() -in [nodeutility]::GetASTitems() ) {
+                Write-Verbose "FINDCHILDREN: AST Type NODE TROUVEE, $($this.Statement)"
+                $tmp = $true
+                $node = [nodeutility]::SetNode($e[$i], $f)
                 $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
                 $LinkedList.AddLast($LinkedNode)
                 $node.LinkedBrothers = $LinkedList
                 $node.LinkedNodeId = $LinkedNode
                 $this.Children.add($node)
-
                 If ( $node.Type -NotIn ("Else", "ElseIf", "SwitchCase", "SwitchDefault")) {
                     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_" + $node.Nodeid)
                     $LinkedList.AddAfter($LinkedNode, $LinkedNodeNext)
                 }
-
+            } else {
+                Write-Verbose "FINDCHILDREN: AST Type NOK, TEST PROCESS, $($this.Statement)"
+                if ( ( $tmp -and ($i -gt 0) ) -or ( ($i -eq 0) -or ($i -eq $e.count) ) ) {
+                    Write-Verbose "FINDCHILDREN: AST Type NOK CACA BOUDIN, $($this.Statement)"
+                    $tmp = $false
+                    $node = [BlockProcess]::new($f)
+                    $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
+                    $LinkedList.AddLast($LinkedNode)
+                    $node.LinkedBrothers = $LinkedList
+                    $node.LinkedNodeId = $LinkedNode
+                    $this.Children.add($node)
+                }
             }
+            $i++
         }
 
         If ( $this.Children.count -eq 0 ) {
-            $node = [BlockProcess]::new()
+            $node = [BlockProcess]::new($f)
             $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
             $LinkedList.AddLast($LinkedNode)
             $node.LinkedBrothers = $LinkedList
@@ -378,22 +415,29 @@ Class IfNode : node {
 
     }
 
-    [string] graph () {
+    [string] graph ($UseDescription) {
 
         ## On stocke le noeud de fin
         $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
+        $string=""
 
         ## Creation des noeuds de base
-        write-verbose "GRAPH: IF: DRAWING IF NODE"
-        $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
-        write-verbose "GRAPH: IF: DRAWING ENDIF NODE"
-        $string = $string + ";node " + $this.EndNodeid + " -attributes @{shape='point'}"
-
         ## si on a pas de previous node, et niveau 1
         If ( ($this.Depth -eq 1) -And ($null -eq $this.LinkedNodeId.Previous) ) {
             write-Verbose "Graph: If: Drawing START NODE"
-            $string = $string + ";Edge -from START -to " + $this.NodeId        
+            $string = ";Edge -from START -to " + $this.NodeId        
         }
+
+        write-verbose "GRAPH: IF: DRAWING IF NODE"
+        # $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        ## on cree les bases
+        If ( $UseDescription ) {
+            $string = $string+";node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
+        } Else {
+            $string = $string+";node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        }
+        write-verbose "GRAPH: IF: DRAWING ENDIF NODE"
+        $string = $string + ";node " + $this.EndNodeid + " -attributes @{shape='point'}"
 
         ## si on a pas de next node, et niveau 1
         If ( ($this.Depth -eq 1) -And ($null -eq $EndIfNode.Next) ) {
@@ -425,7 +469,7 @@ Class IfNode : node {
                 $string = $string + ";Edge -from " + $this.NodeId + " -to " + $this.EndnodeId + " -attributes @{Label='False'}"
             }
 
-            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
+            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph($UseDescription) }
 
         }
 
@@ -451,9 +495,14 @@ Class ElseIfNode : node {
         $this.FindChildren($this.raw.Parent.Clauses.where( { $_.item1.extent.text -eq $this.raw.extent.text }).item2.Statements, $this)
     }
 
-    [string] graph () {
+    [string] graph ($UseDescription) {
 
-        $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        # $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        If ( $UseDescription ) {
+            $string = "node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
+        } Else {
+            $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        }
 
         If ( $null -ne $This.LinkedNodeId.Next ) {
             $string = $string + ";Edge -from " + $this.NodeId + " -to " + $This.LinkedNodeId.Next.Value + " -attributes @{Label='False'}"
@@ -464,7 +513,7 @@ Class ElseIfNode : node {
 
         If ( $this.Children.count -gt 0 ) {
             $string = $string + ";Edge -from " + $this.NodeId + " -to " + $This.Children[0].NodeId + " -attributes @{Label='True'}"
-            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
+            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph($UseDescription) }
             $string = $string + ";Edge -from " + $this.Children[-1].EndnodeId + " -to " + $this.Parent.EndNodeid
         }
 
@@ -488,13 +537,18 @@ Class ElseNode : node {
         $this.FindChildren($this.raw.statements, $this)
     }
 
-    [string] graph () {
+    [string] graph ($UseDescription) {
 
-        $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        # $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        If ( $UseDescription ) {
+            $string = "node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
+        } Else {
+            $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        }
 
         If ( $this.Children.count -gt 0 ) {
             $string = $string + ";Edge -from " + $this.NodeId + " -to " + $This.Children[0].NodeId
-            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
+            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph($UseDescription) }
             $string = $string + ";Edge -from " + $this.Children[-1].EndnodeId + " -to " + $this.Parent.EndNodeid
         }
 
@@ -563,13 +617,18 @@ Class SwitchNode : node {
         $this.Description = $e
     }
 
-    [string] graph () {
+    [string] graph ($UseDescription) {
         ## On stocke le noeud de fin
         $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
 
         ## Creation des noeuds de base
-        $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
-        #$string = $string+";node "+$this.EndNodeid
+        # $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        If ( $UseDescription ) {
+            $string = "node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
+        } Else {
+            $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        }
+        
         $string = $string + ";node " + $this.EndNodeid + " -attributes @{shape='point'}"
 
         ## si on a pas de previous node, et niveau 1
@@ -587,11 +646,11 @@ Class SwitchNode : node {
         For ( $i = 0; $i -lt $this.Children.Count; $i++) {
             If ( $i -eq 0 ) {
                 $string = $string + ";edge -from " + $this.nodeId + " -to " + $this.Children[$i].NodeId
-                $string = $string + ";" + $this.Children[$i].Graph()
+                $string = $string + ";" + $this.Children[$i].graph($UseDescription)
             }
             else {
                 $string = $string + ";edge -from " + $this.Children[$i - 1].NodeId + " -to " + $this.Children[$i].NodeId + " -attributes @{label='False'}"
-                $string = $string + ";" + $this.Children[$i].Graph()
+                $string = $string + ";" + $this.Children[$i].graph($UseDescription)
                 #$string = $string + ";edge -from "+$this.Children[$i].NodeId+" -to "+$this.Children[$i].EndNodeId
             }
         }
@@ -626,16 +685,21 @@ Class SwitchDefaultNode : node {
         $this.FindChildren($f, $this)
     }
 
-    [String] graph () {
+    [String] graph ($UseDescription) {
         ## Creation des noeuds de base
-        $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
-        #$string = $string+";node "+$this.EndNodeid
+        # $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        If ( $UseDescription ) {
+            $string = "node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
+        } Else {
+            $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        }
+       
         $string = $string + ";node " + $this.EndNodeid + " -attributes @{shape='point'}"
         $string = $string + ";Edge -from " + $this.EndNodeId + " -to " + $this.Parent.EndNodeid
 
         If ( $this.Children.count -gt 0 ) {
             $string = $string + ";Edge -from " + $this.NodeId + " -to " + $This.Children[0].NodeId
-            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
+            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.graph($UseDescription) }
             $string = $string + ";Edge -from " + $this.Children[-1].nodeId + " -to " + $this.EndNodeid
         }
 
@@ -658,16 +722,20 @@ Class SwitchCaseNode : node {
         $this.FindChildren($f.Statements, $this)
     }
 
-    [String] graph () {
+    [String] graph ($UseDescription) {
         ## Creation des noeuds de base
-        $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
-        #$string = $string+";node "+$this.EndNodeid
+        # $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        If ( $UseDescription ) {
+            $string = "node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
+        } Else {
+            $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        }
         $string = $string + ";node " + $this.EndNodeid + " -attributes @{shape='point'}"
         $string = $string + ";Edge -from " + $this.EndNodeId + " -to " + $this.Parent.EndNodeid
 
         If ( $this.Children.count -gt 0 ) {
             $string = $string + ";Edge -from " + $this.NodeId + " -to " + $This.Children[0].NodeId
-            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
+            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.graph($UseDescription) }
             $string = $string + ";Edge -from " + $this.Children[-1].nodeId + " -to " + $this.EndNodeid
         }
 
@@ -694,13 +762,18 @@ Class ForeachNode : node {
         $this.FindChildren($this.raw.Body.Statements, $this)
     }
 
-    [string] graph () {
+    [string] graph ($UseDescription) {
 
         ## On stocke le noeud de fin
         $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
 
         ## Noeud et edge de base
-        $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        # $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        If ( $UseDescription ) {
+            $string = "node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
+        } Else {
+            $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        }
         $string = $string + ";node " + $this.EndNodeid + " -attributes @{Label='Next " + $this.raw.Condition + "'}"
         $string = $string + ";Edge -from " + $this.EndNodeid + " -to " + $this.nodeId + " -attributes @{Label='Loop'}"
 
@@ -718,7 +791,7 @@ Class ForeachNode : node {
     
         If ( $this.Children.count -gt 0 ) {
             $string = $string + ";Edge -from " + $this.NodeId + " -to " + $this.Children[0].NodeId
-            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
+            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph($UseDescription) }
 
             ## Si le dernier noeud est de type LOOP
             If ( $this.Children[-1].Type -in ("Foreach", "For", "While", "DoWhile", "DoUntil") ) {
@@ -763,13 +836,18 @@ Class WhileNode : node {
     
     }
 
-    [string] graph () {
+    [string] graph ($UseDescription) {
 
         ## On stocke le noeud de fin
         $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
 
         ## on cree les bases
-        $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        # $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        If ( $UseDescription ) {
+            $string = "node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
+        } Else {
+            $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        }
         $string = $string + ";node " + $this.EndNodeid + " -attributes @{Label='If " + $this.raw.Condition + "';shape='diamond'}"
         $string = $string + ";Edge -from " + $this.EndNodeid + " -to " + $this.nodeId + " -attributes @{Label='True, Loop'}"
 
@@ -788,7 +866,7 @@ Class WhileNode : node {
         If ( $this.Children.count -gt 0 ) {
             Write-Verbose "Graph: While: Graph while children"
             $string = $string + ";Edge -from " + $this.NodeId + " -to " + $this.Children[0].NodeId
-            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
+            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.graph($UseDescription) }
 
             ## Si le dernier noeud est de type LOOP
             If ( $this.Children[-1].Type -in ("Foreach", "For", "While", "DoWhile", "DoUntil") ) {
@@ -835,13 +913,18 @@ Class ForNode : node {
         $this.FindChildren($this.raw.Body.Statements, $this)
     }
 
-    [string] graph () {
+    [string] graph ($UseDescription) {
 
         ## On stocke le noeud de fin
         $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
 
         ## on cree les bases
-        $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        # $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        If ( $UseDescription ) {
+            $string = "node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
+        } Else {
+            $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        }
         $string = $string + ";node " + $this.EndNodeid + " -attributes @{Label='If " + $this.raw.Condition + "';shape='diamond'}"
         $string = $string + ";Edge -from " + $this.EndNodeid + " -to " + $this.nodeId + " -attributes @{Label='" + $this.raw.Iterator.Extent.Text + "'}"
 
@@ -860,7 +943,7 @@ Class ForNode : node {
         If ( $this.Children.count -gt 0 ) {
             Write-Verbose "Graph: For: Graph while children"
             $string = $string + ";Edge -from " + $this.NodeId + " -to " + $this.Children[0].NodeId
-            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
+            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.graph($UseDescription) }
 
             ## Si le dernier noeud est de type LOOP
             If ( $this.Children[-1].Type -in ("Foreach", "For", "While", "DoWhile", "DoUntil") ) {
@@ -906,13 +989,18 @@ Class DoUntilNode : node {
         $this.FindChildren($this.raw.Body.Statements, $this)
     }
 
-    [string] graph () {
+    [string] graph ($UseDescription) {
 
         ## On stocke le noeud de fin
         $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
 
         ## on cree les bases
-        $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        # $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        If ( $UseDescription ) {
+            $string = "node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
+        } Else {
+            $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        }
         $string = $string + ";node " + $this.EndNodeid + " -attributes @{Label='Is " + $this.raw.Condition + "';shape='diamond'}"
         $string = $string + ";Edge -from " + $this.EndNodeid + " -to " + $this.nodeId + " -attributes @{Label='False, Loop'}"
 
@@ -931,7 +1019,7 @@ Class DoUntilNode : node {
         If ( $this.Children.count -gt 0 ) {
             Write-Verbose "Graph: DoUntil: Graph DoUntil children"
             $string = $string + ";Edge -from " + $this.NodeId + " -to " + $this.Children[0].NodeId
-            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
+            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.graph($UseDescription) }
 
             ## Si le dernier noeud est de type LOOP
             If ( $this.Children[-1].Type -in ("Foreach", "For", "While", "DoWhile", "DoUntil") ) {
@@ -977,13 +1065,17 @@ Class DoWhileNode : node {
         $this.FindChildren($this.raw.Body.Statements, $this)
     }
 
-    [string] graph () {
+    [string] graph ($UseDescription) {
 
         ## On stocke le noeud de fin
         $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
 
         ## on cree les bases
-        $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        If ( $UseDescription ) {
+            $string = "node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
+        } Else {
+            $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        }
         $string = $string + ";node " + $this.EndNodeid + " -attributes @{Label='If " + $this.raw.Condition + "';shape='diamond'}"
         $string = $string + ";Edge -from " + $this.EndNodeid + " -to " + $this.nodeId + " -attributes @{Label='True, Loop'}"
 
@@ -1002,7 +1094,7 @@ Class DoWhileNode : node {
         If ( $this.Children.count -gt 0 ) {
             Write-Verbose "Graph: DoWhile: Graph DoWhile children"
             $string = $string + ";Edge -from " + $this.NodeId + " -to " + $this.Children[0].NodeId
-            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph() }
+            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.graph($UseDescription) }
 
             ## Si le dernier noeud est de type LOOP
             If ( $this.Children[-1].Type -in ("Foreach", "For", "While", "DoWhile", "DoUntil") ) {
@@ -1037,12 +1129,28 @@ Class DoWhileNode : node {
 Class BlockProcess : node {
     [string]$Type = "BlockProcess"
 
-    BlockProcess () : base () {
+    BlockProcess ($f) : base ($f) {
         $this.Statement = "ProcessBlock"
     }
 
-    [string] graph () {
-        $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "'}"
+    [string] graph ($UseDescription) {
+        # $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "'}"
+        If ( $UseDescription ) {
+            $string = "node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
+        } Else {
+            $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        }
+
+        ## OK çA MARCHE PAS PARCEQUE BLOCKPROCESS N A PAS DE PARENT !
+        if ( $null -ne $this.LinkedNodeId.next ) {
+            $NextNode = $this.parent.Children.where({$_.NodeID -eq $this.LinkedNodeId.next})
+            If ( $NextNode.Type -notlike "Else*" ) {
+                Write-Verbose "Graph: foreach: the next node is not a else/elseif"
+                $string = $string + ";Edge -from " + $this.EndnodeId + " -to " + $this.LinkedNodeId.next.Value
+            }
+            
+        }
+
         return $string
     }
 
