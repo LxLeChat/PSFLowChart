@@ -700,7 +700,7 @@ Class SwitchDefaultNode : node {
         If ( $this.Children.count -gt 0 ) {
             $string = $string + ";Edge -from " + $this.NodeId + " -to " + $This.Children[0].NodeId
             foreach ( $child in $this.Children ) { $string = $string + ";" + $child.graph($UseDescription) }
-            $string = $string + ";Edge -from " + $this.Children[-1].nodeId + " -to " + $this.EndNodeid
+            $string = $string + ";Edge -from " + $this.Children[-1].EndNodeId + " -to " + $this.EndNodeid
         }
 
 
@@ -736,7 +736,7 @@ Class SwitchCaseNode : node {
         If ( $this.Children.count -gt 0 ) {
             $string = $string + ";Edge -from " + $this.NodeId + " -to " + $This.Children[0].NodeId
             foreach ( $child in $this.Children ) { $string = $string + ";" + $child.graph($UseDescription) }
-            $string = $string + ";Edge -from " + $this.Children[-1].nodeId + " -to " + $this.EndNodeid
+            $string = $string + ";Edge -from " + $this.Children[-1].EndNodeId + " -to " + $this.EndNodeid
         }
 
 
