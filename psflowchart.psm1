@@ -289,6 +289,8 @@ class node {
         else {
             If ( $this.Description -eq $this.Statement ) {
                 $this.Description = $this.Statement
+            } else {
+                $this.Description = $this.Statement
             }
         }
 
@@ -846,28 +848,28 @@ Class WhileNode : node {
         $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
 
         $string = ''
-        ## si on a pas de next node, et niveau 1
-        If ( ($this.Depth -eq 1) -And ($null -eq $EndIfNode.Next) ) {
-            write-Verbose "Graph: While: Drawing END NODE"
-            $string = ";Edge -from " + $this.EndNodeid + " -to END"
+        ## si on a pas de previous node, et niveau 0
+        If ( ($this.Depth -eq 1) -And ($null -eq $this.LinkedNodeId.Previous) ) {
+            write-Verbose "Graph: While: Drawing START NODE"
+            $string = ";Edge -from START -to " + $this.NodeId        
         }
-
+        
         ## on cree les bases
-        # $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
         If ( $UseDescription ) {
-            $string = "node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
+            $string = $string +";node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
         } Else {
-            $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+            $string = $string +";node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
         }
         $string = $string + ";node " + $this.EndNodeid + " -attributes @{Label='If " + $this.raw.Condition + "';shape='diamond'}"
         $string = $string + ";Edge -from " + $this.EndNodeid + " -to " + $this.nodeId + " -attributes @{Label='True, Loop'}"
 
-        ## si on a pas de previous node, et niveau 0
-        If ( ($this.Depth -eq 1) -And ($null -eq $this.LinkedNodeId.Previous) ) {
-            write-Verbose "Graph: While: Drawing START NODE"
-            $string = $string + ";Edge -from START -to " + $this.NodeId        
+        ## si on a pas de next node, et niveau 1
+        If ( ($this.Depth -eq 1) -And ($null -eq $EndIfNode.Next) ) {
+            write-Verbose "Graph: While: Drawing END NODE"
+            $string = $string+";Edge -from " + $this.EndNodeid + " -to END -attributes @{Label='LoopEnded'}"
         }
 
+        ## si on a des enfants
         If ( $this.Children.count -gt 0 ) {
             Write-Verbose "Graph: While: Graph while children"
             $string = $string + ";Edge -from " + $this.NodeId + " -to " + $this.Children[0].NodeId
@@ -924,28 +926,30 @@ Class ForNode : node {
         $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
 
         $string = ''
-        ## si on a pas de next node, et niveau 1
-        If ( ($this.Depth -eq 1) -And ($null -eq $EndIfNode.Next) ) {
-            write-Verbose "Graph: For: Drawing END NODE"
-            $string = ";Edge -from " + $this.EndNodeid + " -to END"
+        ## si on a pas de previous node, et niveau 0
+        If ( ($this.Depth -eq 1) -And ($null -eq $this.LinkedNodeId.Previous) ) {
+            write-Verbose "Graph: For: Drawing START NODE"
+            $string = ";Edge -from START -to " + $this.NodeId        
         }
+
 
         ## on cree les bases
         # $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
         If ( $UseDescription ) {
-            $string = "node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
+            $string = $string+";node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
         } Else {
-            $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+            $string = $string+";node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
         }
         $string = $string + ";node " + $this.EndNodeid + " -attributes @{Label='If " + $this.raw.Condition + "';shape='diamond'}"
         $string = $string + ";Edge -from " + $this.EndNodeid + " -to " + $this.nodeId + " -attributes @{Label='" + $this.raw.Iterator.Extent.Text + "'}"
 
-        ## si on a pas de previous node, et niveau 0
-        If ( ($this.Depth -eq 1) -And ($null -eq $this.LinkedNodeId.Previous) ) {
-            write-Verbose "Graph: For: Drawing START NODE"
-            $string = $string + ";Edge -from START -to " + $this.NodeId        
+        ## si on a pas de next node, et niveau 1
+        If ( ($this.Depth -eq 1) -And ($null -eq $EndIfNode.Next) ) {
+            write-Verbose "Graph: For: Drawing END NODE"
+            $string = $string+";Edge -from " + $this.EndNodeid + " -to END -attributes @{Label='LoopEnded'}"
         }
 
+        ## Si il y a des enfants
         If ( $this.Children.count -gt 0 ) {
             Write-Verbose "Graph: For: Graph while children"
             $string = $string + ";Edge -from " + $this.NodeId + " -to " + $this.Children[0].NodeId
@@ -959,11 +963,6 @@ Class ForNode : node {
                 $string = $string + ";Edge -from " + $this.Children[-1].LinkedBrothers.Last.Value + " -to " + $this.EndNodeid
             }
         }
-
-        # If ( $null -ne $EndIfNode.Next ) {
-        #     Write-Verbose "Graph: For: there is a node after the EndFor"
-        #     $string = $string + ";Edge -from " + $this.EndnodeId + " -to " + $EndIfNode.Next.Value + " -attributes @{label='LoopEnded'}"
-        # }
 
         If ( $null -ne $EndIfNode.Next ) {
             Write-Verbose "Graph: foreach: there is a node after the EndNodeId"

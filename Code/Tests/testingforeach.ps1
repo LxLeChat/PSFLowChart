@@ -11,13 +11,5 @@ Foreach ( $b in $c ) {
     }
 
     "aaaaaaaaaaw<q<s"
-
-    if ( $b -eq 2 ) {
-
-    } elseif ( $b -eq 3) {
-
-    } else {
-
-    }
     "aaaaa"
 }
