@@ -2,30 +2,67 @@ using namespace System.Management.Automation.Language
 
 class nodeutility {
 
+    # [node[]] static ParseFile ([string]$File) {
+    #     $ParsedFile = [Parser]::ParseFile($file, [ref]$null, [ref]$Null)
+    #     $RawAstDocument = $ParsedFile.FindAll( { $args[0] -is [Ast] }, $false)
+    #     $LinkedList = [System.Collections.Generic.LinkedList[string]]::new()
+    #     $x = @()
+    #     $RawAstDocument | ForEach-Object {
+    #         $CurrentRawAst = $PSItem
+    #         if ( $null -eq $CurrentRawAst.parent.parent.parent ) {
+    #             $t = [nodeutility]::SetNode($CurrentRawAst)
+    #             if ( $null -ne $t) {
+    #                 Write-Verbose "NIVEAU 1: $($t.Statement)"
+    #                 $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($t.Nodeid)
+    #                 $LinkedList.AddLast($LinkedNode)
+    #                 $t.LinkedBrothers = $LinkedList
+    #                 $t.LinkedNodeId = $LinkedNode
+                
+    #                 $x += $t
+
+    #                 If ( $t.Type -NotIn ("Else", "ElseIf", "SwitchCase", "SwitchDefault")) {
+    #                     $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_" + $t.Nodeid)
+    #                     $LinkedList.AddAfter($LinkedNode, $LinkedNodeNext)
+    #                 }
+    #             }
+    #         }
+    #     }
+    #     return $x
+    # }
+
     [node[]] static ParseFile ([string]$File) {
+        $x = [System.Collections.Generic.list[node]]@()
         $ParsedFile = [Parser]::ParseFile($file, [ref]$null, [ref]$Null)
+        $ParsedFile = [Parser]::ParseFile('C:\Users\Lx\GitPerso\FLowChart\Code\Tests\testingforeach.ps1', [ref]$null, [ref]$Null)
         $RawAstDocument = $ParsedFile.FindAll( { $args[0] -is [Ast] }, $false)
         $LinkedList = [System.Collections.Generic.LinkedList[string]]::new()
-        $x = @()
-        $RawAstDocument | ForEach-Object {
-            $CurrentRawAst = $PSItem
-            if ( $null -eq $CurrentRawAst.parent.parent.parent ) {
-                $t = [nodeutility]::SetNode($CurrentRawAst)
-                if ( $null -ne $t) {
-                    Write-Verbose "NIVEAU 1: $($t.Statement)"
-                    $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($t.Nodeid)
+        $i=2
+        $tmp = $false
+        while ( $i -lt $RawAstDocument.count ) {
+            if ( $null -eq $RawAstDocument[$i].parent.parent.parent ) {
+                If ( $RawAstDocument[$i].GetType() -in [nodeutility]::GetASTitems() ) {
+                    $tmp = $true
+                    $node = [nodeutility]::SetNode($RawAstDocument[$i])
+                    $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
                     $LinkedList.AddLast($LinkedNode)
-                    $t.LinkedBrothers = $LinkedList
-                    $t.LinkedNodeId = $LinkedNode
-                
-                    $x += $t
-
-                    If ( $t.Type -NotIn ("Else", "ElseIf", "SwitchCase", "SwitchDefault")) {
-                        $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_" + $t.Nodeid)
-                        $LinkedList.AddAfter($LinkedNode, $LinkedNodeNext)
+                    $node.LinkedBrothers = $LinkedList
+                    $node.LinkedNodeId = $LinkedNode
+                    $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_" + $node.Nodeid)
+                    $LinkedList.AddAfter($LinkedNode, $LinkedNodeNext)
+                    $x.Add($node)
+                } else {
+                    if ( ( $tmp -and ($i -gt 2) ) -or ( ($i -eq 2) -or ($i -eq $RawAstDocument.count) ) ) {
+                        $tmp = $false
+                        $node = [BlockProcess]::new()
+                        $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
+                        $LinkedList.AddLast($LinkedNode)
+                        $node.LinkedBrothers = $LinkedList
+                        $node.LinkedNodeId = $LinkedNode
+                        $x.Add($node)
                     }
                 }
             }
+            $i++
         }
         return $x
     }
@@ -1124,6 +1161,10 @@ Class DoWhileNode : node {
 
 Class BlockProcess : node {
     [string]$Type = "BlockProcess"
+
+    BlockProcess () : base () {
+        $this.Statement = "ProcessBlock"
+    }
 
     BlockProcess ($f) : base ($f) {
         $this.Statement = "ProcessBlock"
