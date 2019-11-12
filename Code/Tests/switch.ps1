@@ -4,9 +4,11 @@ Foreach ( $a in $b ) {
             foreach ( $a in $b){"aaaa"}
         }
         2 {
+                "hhhhh"
             while( $i -lt 10 ) {
                 "aaaa"
             }
+            "aaa"
         }
         default {}
     }
