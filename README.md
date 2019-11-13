@@ -3,7 +3,7 @@ Draw PS1 script FlowChart.
 It's still a work in progress ! building the script is done manually, no tests, etc... !
 
 # How it works
-The script parses a script AST, and create a list of ``nodes`` idenfying foreach/if/switch/loop statements. The output is a tree of nodes (parent, children etc... )
+The script parses a script AST, and create a list of ``nodes`` idenfying foreach/if/switch/loop statements. The output is a tree of nodes (parent, children etc... ). For Drawing, the script depends on PSGraph.
 
 # Imporing the module
 ```powershell
@@ -30,4 +30,5 @@ You can then explorer the object: ``$x.Children`` etc...
 Find-FCNode -File .\basic_example_1.ps1 | New-FCGraph
 ```
 Result :
+![plopy](basic_example_1.png)
 
