@@ -254,26 +254,36 @@ class node {
     }
 
     [void] FindDescription ([Bool]$Recurse) {
-        write-Verbose "$($this.Type)"
+        Write-Verbose "Node: FinDescription([Bool]`$Recurse)..."
         $comment = [System.Management.Automation.PSParser]::Tokenize($this.Code, [ref]$null) | Where-Object { $_.type -eq "comment" -And $_.StartLine -eq 2 }
-        # $this.Description = $this.Statement
 
         If ( $comment ) {
+            Write-Verbose "Node: FinDescription, Comment Found.."
             If ( $comment[0].Content -match "Description:(?<description>\s?[\w\s]+)" ) {
+                Write-Verbose "Node: FinDescription, Comment does Match Description KeyWord.."
                 $this.Description = $Matches.description.Trim() 
             }
+        } Else {
+            Write-Verbose "Node: FinDescription, Comment does not Match Description KeyWord, Setting Statement as Description.."
+            $this.Description = $this.Statement
         }
         $this.Children.FindDescription($Recurse)
     }
 
     [void] FindDescription ([Bool]$Recurse, [string]$KeyWord) {
+        Write-Verbose "Node: FinDescription([Bool]`$Recurse, [string]`$KeyWord)..."
         $comment = [System.Management.Automation.PSParser]::Tokenize($this.Code, [ref]$null) | Where-Object { $_.type -eq "comment" -And $_.StartLine -eq 2 }
         # $this.Description = $this.Statement
 
         If ( $comment ) {
+            Write-Verbose "Node: FinDescription, Comment Found.."
             If ( $comment[0].Content -match "$($KeyWord):(?<description>\s?[\w\s]+)" ) {
+                Write-Verbose "Node: FinDescription, Comment does Match $KeyWord KeyWord.."
                 $this.Description = $Matches.description.Trim() 
             }
+        } else {
+            Write-Verbose "Node: FinDescription, Comment does not Match Description $KeyWord, Setting Statement as Description.."
+            $this.Description = $this.Statement
         }
     
         $this.Children.FindDescription($Recurse, $KeyWord)
