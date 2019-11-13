@@ -25,6 +25,23 @@ File        : C:\basic_example_1.ps1
 
 You can then explorer the object: ``$x.Children`` etc...
 
+# Finding and Using Description
+You can unse ``-FindDescription`` with ``-KeyWord MyCustomKeyWord`` on ``Find-FCNode`` or ``-DescriptionAsLabel`` on ``New-FCGraph``... 
+By default, the script will try to find the first comment right after a statement.
+Then it validates the comment againt a regex with a special keywoard (you can define it... ), wich by default is ``Description`` 
+Valid Comment for identification:
+```powershell
+If ($a) {
+# Description: this is a valid description
+}
+```
+UnValid Comment, unless you specify that the keyword is ``Ahahah``:
+```powershell
+If ($a) {
+# Ahahah: this is a valid description
+}
+`` 
+
 # Drawing the flowchart
 ```powershell
 Find-FCNode -File .\basic_example_1.ps1 | New-FCGraph
