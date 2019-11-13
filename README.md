@@ -2,8 +2,8 @@
 Draw PS1 script FlowChart.
 It's still a work in progress ! building the script is done manually, no tests, etc... !
 
-## know problems
-Condition with simple quotes, will make the graph fail for example : ``if ( $a -eq 'a'){}``
+## know issues
+~~Condition with simple quotes, will make the graph fail for example : ``if ( $a -eq 'a'){}``
 
 # How it works
 The script parses a script AST, and create a list of ``nodes`` idenfying foreach/if/switch/loop statements. The output is a tree of nodes (parent, children etc... ). For Drawing, the script depends on PSGraph.
