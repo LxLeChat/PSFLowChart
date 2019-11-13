@@ -1039,7 +1039,7 @@ Class DoUntilNode : node {
         } Else {
             $string = $string+";node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
         }
-        $string = $string + ";node " + $this.EndNodeid + " -attributes @{Label='Is " + $this.raw.Condition + "';shape='diamond'}"
+        $string = $string + ";node " + $this.EndNodeid + " -attributes @{Label='Is " + ($this.raw.Condition -replace "'|""", '') + "';shape='diamond'}"
         $string = $string + ";Edge -from " + $this.EndNodeid + " -to " + $this.nodeId + " -attributes @{Label='False, Loop'}"
 
 
@@ -1111,7 +1111,7 @@ Class DoWhileNode : node {
         } Else {
             $string = $string+";node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
         }
-        $string = $string + ";node " + $this.EndNodeid + " -attributes @{Label='If " + $this.raw.Condition + "';shape='diamond'}"
+        $string = $string + ";node " + $this.EndNodeid + " -attributes @{Label='If " + ($this.raw.Condition -replace "'|""", '') + "';shape='diamond'}"
         $string = $string + ";Edge -from " + $this.EndNodeid + " -to " + $this.nodeId + " -attributes @{Label='True, Loop'}"
 
         ## si on a pas de next node, et niveau 1

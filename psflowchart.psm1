@@ -240,19 +240,26 @@ class node {
         }
     }
 
+    ## Method to find description
+    ## Description should be right beneath a statement an look like this:
+    ## # Description: Something to describe
     [void] FindDescription () {
-        write-Verbose "$($this.Type)"
+        Write-Verbose "Node: FinDescription()..."
         $comment = [System.Management.Automation.PSParser]::Tokenize($this.Code, [ref]$null) | Where-Object { $_.type -eq "comment" -And $_.StartLine -eq 2 }
-        # $this.Description = $this.Statement
 
         If ( $comment ) {
+            Write-Verbose "Node: FinDescription, Comment Found.."
             If ( $comment[0].Content -match "Description:(?<description>\s?[\w\s]+)" ) {
                 $this.Description = $Matches.description.Trim() 
+            } Else {
+                Write-Verbose "Node: FinDescription, Comment does not Match Description KeyWord, Setting Statement as Description.."
+                $this.Description = $this.Statement
             }
         }
     
     }
 
+    ## Override Method to find description, Do it Recursively
     [void] FindDescription ([Bool]$Recurse) {
         Write-Verbose "Node: FinDescription([Bool]`$Recurse)..."
         $comment = [System.Management.Automation.PSParser]::Tokenize($this.Code, [ref]$null) | Where-Object { $_.type -eq "comment" -And $_.StartLine -eq 2 }
@@ -270,6 +277,7 @@ class node {
         $this.Children.FindDescription($Recurse)
     }
 
+    ## Override Method to find description, Do it Recursively, with a specific keyword
     [void] FindDescription ([Bool]$Recurse, [string]$KeyWord) {
         Write-Verbose "Node: FinDescription([Bool]`$Recurse, [string]`$KeyWord)..."
         $comment = [System.Management.Automation.PSParser]::Tokenize($this.Code, [ref]$null) | Where-Object { $_.type -eq "comment" -And $_.StartLine -eq 2 }
@@ -290,7 +298,7 @@ class node {
     
     }
 
-    ## Pour Setter la description
+    ## Method to set a description, recursively or not
     [void] SetDescription ([Bool]$Recurse) {
 
         $this.FindDescription()
@@ -632,7 +640,7 @@ Class SwitchNode : node {
 
     }
 
-    ## pas rÃ©ussi a chopper le "code" du switch .. du coup la description ne sra pas settable dans le script
+    ## pas réussi a chopper le "code" du switch .. du coup la description ne sra pas settable dans le script
     ## la description ne sera utilisable que pour le graph
     [void]SetDescription([string]$e) {
         $this.Description = $e
@@ -831,7 +839,7 @@ Class ForeachNode : node {
 
         If ( $null -ne $EndIfNode.Next ) {
             Write-Verbose "Graph: foreach: there is a node after the EndNodeId"
-            ## Si le noeud suivant est un else/elseif On ne fait rien, le edge doit Ãªtre dessiner vers ENDIF, et il est fait par la methode Graph du IF
+            ## Si le noeud suivant est un else/elseif On ne fait rien, le edge doit être dessiner vers ENDIF, et il est fait par la methode Graph du IF
             $NextNode = $this.parent.Children.where({$_.NodeID -eq $EndIfNode.Next.Value})
             If ( $NextNode.Type -notlike "Else*" ) {
                 Write-Verbose "Graph: foreach: the next node is not a else/elseif"
@@ -911,7 +919,7 @@ Class WhileNode : node {
         
         If ( $null -ne $EndIfNode.Next ) {
             Write-Verbose "Graph: foreach: there is a node after the EndNodeId"
-            ## Si le noeud suivant est un else/elseif On ne fait rien, le edge doit Ãªtre dessiner vers ENDIF, et il est fait par la methode Graph du IF
+            ## Si le noeud suivant est un else/elseif On ne fait rien, le edge doit être dessiner vers ENDIF, et il est fait par la methode Graph du IF
             $NextNode = $this.parent.Children.where({$_.NodeID -eq $EndIfNode.Next.Value})
             If ( $NextNode.Type -notlike "Else*" ) {
                 Write-Verbose "Graph: foreach: the next node is not a else/elseif"
@@ -985,7 +993,7 @@ Class ForNode : node {
 
         If ( $null -ne $EndIfNode.Next ) {
             Write-Verbose "Graph: foreach: there is a node after the EndNodeId"
-            ## Si le noeud suivant est un else/elseif On ne fait rien, le edge doit Ãªtre dessiner vers ENDIF, et il est fait par la methode Graph du IF
+            ## Si le noeud suivant est un else/elseif On ne fait rien, le edge doit être dessiner vers ENDIF, et il est fait par la methode Graph du IF
             $NextNode = $this.parent.Children.where({$_.NodeID -eq $EndIfNode.Next.Value})
             If ( $NextNode.Type -notlike "Else*" ) {
                 Write-Verbose "Graph: foreach: the next node is not a else/elseif"
@@ -1031,7 +1039,7 @@ Class DoUntilNode : node {
         } Else {
             $string = $string+";node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
         }
-        $string = $string + ";node " + $this.EndNodeid + " -attributes @{Label='Is " + $this.raw.Condition + "';shape='diamond'}"
+        $string = $string + ";node " + $this.EndNodeid + " -attributes @{Label='Is " + ($this.raw.Condition -replace "'|""", '') + "';shape='diamond'}"
         $string = $string + ";Edge -from " + $this.EndNodeid + " -to " + $this.nodeId + " -attributes @{Label='False, Loop'}"
 
 
@@ -1057,7 +1065,7 @@ Class DoUntilNode : node {
         
         If ( $null -ne $EndIfNode.Next ) {
             Write-Verbose "Graph: foreach: there is a node after the EndNodeId"
-            ## Si le noeud suivant est un else/elseif On ne fait rien, le edge doit Ãªtre dessiner vers ENDIF, et il est fait par la methode Graph du IF
+            ## Si le noeud suivant est un else/elseif On ne fait rien, le edge doit être dessiner vers ENDIF, et il est fait par la methode Graph du IF
             $NextNode = $this.parent.Children.where({$_.NodeID -eq $EndIfNode.Next.Value})
             If ( $NextNode.Type -notlike "Else*" ) {
                 Write-Verbose "Graph: foreach: the next node is not a else/elseif"
@@ -1103,7 +1111,7 @@ Class DoWhileNode : node {
         } Else {
             $string = $string+";node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
         }
-        $string = $string + ";node " + $this.EndNodeid + " -attributes @{Label='If " + $this.raw.Condition + "';shape='diamond'}"
+        $string = $string + ";node " + $this.EndNodeid + " -attributes @{Label='If " + ($this.raw.Condition -replace "'|""", '') + "';shape='diamond'}"
         $string = $string + ";Edge -from " + $this.EndNodeid + " -to " + $this.nodeId + " -attributes @{Label='True, Loop'}"
 
         ## si on a pas de next node, et niveau 1
@@ -1128,7 +1136,7 @@ Class DoWhileNode : node {
 
         If ( $null -ne $EndIfNode.Next ) {
             Write-Verbose "Graph: foreach: there is a node after the EndNodeId"
-            ## Si le noeud suivant est un else/elseif On ne fait rien, le edge doit Ãªtre dessiner vers ENDIF, et il est fait par la methode Graph du IF
+            ## Si le noeud suivant est un else/elseif On ne fait rien, le edge doit être dessiner vers ENDIF, et il est fait par la methode Graph du IF
             $NextNode = $this.parent.Children.where({$_.NodeID -eq $EndIfNode.Next.Value})
             If ( $NextNode.Type -notlike "Else*" ) {
                 Write-Verbose "Graph: foreach: the next node is not a else/elseif"
@@ -1176,7 +1184,7 @@ Class BlockProcess : node {
             $string = $string +";node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
         }
 
-        ## OK Ã§A MARCHE PAS PARCEQUE BLOCKPROCESS N A PAS DE PARENT !
+        ## OK çA MARCHE PAS PARCEQUE BLOCKPROCESS N A PAS DE PARENT !
         if ( $null -ne $this.LinkedNodeId.next ) {
             $NextNode = $this.parent.Children.where({$_.NodeID -eq $this.LinkedNodeId.next.Value})
             If ( $NextNode.Type -notlike "Else*" ) {
@@ -1262,6 +1270,7 @@ function Find-FCNode {
         
     }
 }
+
 function New-FCGraph {
     <#
     .SYNOPSIS
@@ -1275,7 +1284,7 @@ function New-FCGraph {
         PS C:\> Find-FCNode -File .\basic_example_1.ps1 -FindDescription | New-FCGraph -DescriptionAsLabe
         Draw a script flowchart. Will user node(s) descirption as Label(s).
     .INPUTS
-        [Node[]]
+        Inputs (if any)
     .OUTPUTS
         Output (if any)
     .NOTES
@@ -1283,10 +1292,14 @@ function New-FCGraph {
     #>
     [CmdletBinding()]
     param (
-        # an array of node, or a node
-        [Parameter(Mandatory=$True,ValueFromPipeline=$True)]
+        # Parameter help description
+        [Parameter(Mandatory=$False,ValueFromPipeline=$True)]
         [Node[]]
         $Node,
+        # # Whether or not to show the graph, default=$true
+        # [Parameter(Mandatory=$False)]
+        # [Switch]
+        # $Show=$True,
         # Name of the graph
         [Parameter(Mandatory=$False)]
         [String]
