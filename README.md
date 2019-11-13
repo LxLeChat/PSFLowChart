@@ -1,36 +1,33 @@
-# FLowChart (Faut trouver un autre nom ! )
-- ne fonctionne pour l'instant que sur des script "purs" ... pas des modules ou des scriptblock (fonctions ou autres)
-- les formes sont temporaires, ainsi que le contenu des "noeuds". A terme il y aura des formes dédiés et vous pourrez setter une description, ou bien à l'aide d un block comment spécial dans votre code, automatiquement setter le contenu noeud.
--testez testez testez :)
+# FLowChart
+Draw PS1 script FlowChart.
+It's still a work in progress ! building the script is done manually, no tests, etc... !
 
-# Nouveaux Trucs
-- Vous pouvez Setter des description avec la méthode `` SetDescription($Recurse)``
-- Dans le script que vous parsez, sous un statement If/foreach/Do/etc... il y a une méthode ``FindDescription()`` qui permet de trouver cette description et de la setter sur le noeud ``[node]``, voir l utilisation pour comment faire ( c'est pas encore dans les cmdlets)
+# How it works
+The script parses a script AST, and create a list of ``nodes`` idenfying foreach/if/switch/loop statements. The output is a tree of nodes (parent, children etc... )
+
+# Imporing the module
 ```powershell
-If ( $a ) {
-# Description: Description Du IF
-}
+Import-Module PsFlowChart.psm1
 ```
 
-
-# Notes
-- Commencer par build le psm1 (celui présent n est pas forcement à jour )
-```
-.\DirtyBuild.ps1
-```
-
-- Utilisation:
+# Usage
 ```powershell
-Import-Module .\psflowchart.psm1
-$a=Find-FCNodes .\plop.ps1
-New-FCGraph $a
-
-## trouver les descriptions recursivement:
-$a.FindDescription($True)
-
-## Setter des description de manière recursive:
-$a.SetDescription($True)
+$x = Find-FCNode -File .\basic_example_1.ps1
+$x
+Type        : If
+Statement   : If ( $a -eq 10 )
+Description :
+Children    : {ForeachNode, ElseNode}
+Parent      :
+Depth       : 1
+File        : C:\basic_example_1.ps1
 ```
-Manfez c'est pret.
 
-![plopy](plop.png)
+You can then explorer the object: ``$x.Children`` etc...
+
+# Drawing the flowchart
+```powershell
+Find-FCNode -File .\basic_example_1.ps1 | New-FCGraph
+```
+Result :
+
