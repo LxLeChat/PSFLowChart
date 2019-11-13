@@ -35,12 +35,12 @@ If ($a) {
 # Description: this is a valid description
 }
 ```
-UnValid Comment, unless you specify that the keyword is ``Ahahah``:
+Non-valid Comment, unless you specify that the keyword is ``Ahahah``:
 ```powershell
 If ($a) {
 # Ahahah: this is a valid description
 }
-`` 
+```
 
 # Drawing the flowchart
 ```powershell
