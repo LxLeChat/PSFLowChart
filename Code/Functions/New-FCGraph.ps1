@@ -50,7 +50,7 @@ function New-FCGraph {
         } Else {
             $string=$node.graph($False)
         }
-        Write-Host "GraphName: $GraphName"
+
         $s = $string | out-string
         $plop = [scriptblock]::Create($s).invoke()
         $graph = graph "$Name" {
