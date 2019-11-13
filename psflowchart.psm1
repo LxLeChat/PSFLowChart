@@ -910,12 +910,6 @@ Class WhileNode : node {
                 $string = $string + ";Edge -from " + $this.Children[-1].LinkedBrothers.Last.Value + " -to " + $this.EndNodeid
             }
         }
-
-        # If ( $null -ne $EndIfNode.Next ) {
-        #     Write-Verbose "Graph: While: there is a node after the EndWhile"
-        #     $string = $string + ";Edge -from " + $this.EndnodeId + " -to " + $EndIfNode.Next.Value + " -attributes @{label='LoopEnded'}"
-        # }
-
         
         If ( $null -ne $EndIfNode.Next ) {
             Write-Verbose "Graph: foreach: there is a node after the EndNodeId"
@@ -959,9 +953,7 @@ Class ForNode : node {
             $string = ";Edge -from START -to " + $this.NodeId        
         }
 
-
         ## on cree les bases
-        # $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
         If ( $UseDescription ) {
             $string = $string+";node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
         } Else {
@@ -1296,10 +1288,6 @@ function New-FCGraph {
         [Parameter(Mandatory=$False,ValueFromPipeline=$True)]
         [Node[]]
         $Node,
-        # # Whether or not to show the graph, default=$true
-        # [Parameter(Mandatory=$False)]
-        # [Switch]
-        # $Show=$True,
         # Name of the graph
         [Parameter(Mandatory=$False)]
         [String]
@@ -1315,19 +1303,26 @@ function New-FCGraph {
     )
     
     begin {
-        
+
     }
     
     process {
+
+        $GraphName = [System.Io.Path]::GetFileName(($node | Where-Object file -ne $null | Select-Object -first 1).File)
+
         If ( $DescriptionAsLabel ) {
             $string = $node.graph($True)
         } Else {
             $string=$node.graph($False)
         }
-
+        Write-Host "GraphName: $GraphName"
         $s = $string | out-string
         $plop = [scriptblock]::Create($s).invoke()
-        $graph = graph "$Name" {$plop}
+        $graph = graph "$Name" {
+            # SubGraph -Attributes @{label=$GraphName} -ScriptBlock {
+                $plop
+            # }
+        } -Attributes @{label=$GraphName}
 
         If ( $PassThru ) {
             $graph

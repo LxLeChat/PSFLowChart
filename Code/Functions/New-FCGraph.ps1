@@ -23,10 +23,6 @@ function New-FCGraph {
         [Parameter(Mandatory=$False,ValueFromPipeline=$True)]
         [Node[]]
         $Node,
-        # # Whether or not to show the graph, default=$true
-        # [Parameter(Mandatory=$False)]
-        # [Switch]
-        # $Show=$True,
         # Name of the graph
         [Parameter(Mandatory=$False)]
         [String]
@@ -42,19 +38,24 @@ function New-FCGraph {
     )
     
     begin {
-        
+
     }
     
     process {
+
+        $GraphName = [System.Io.Path]::GetFileName(($node | Where-Object file -ne $null | Select-Object -first 1).File)
+
         If ( $DescriptionAsLabel ) {
             $string = $node.graph($True)
         } Else {
             $string=$node.graph($False)
         }
-
+        Write-Host "GraphName: $GraphName"
         $s = $string | out-string
         $plop = [scriptblock]::Create($s).invoke()
-        $graph = graph "$Name" {$plop}
+        $graph = graph "$Name" {
+                $plop
+        } -Attributes @{label="Script: $($GraphName.ToUpper())"}
 
         If ( $PassThru ) {
             $graph

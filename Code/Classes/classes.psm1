@@ -910,12 +910,6 @@ Class WhileNode : node {
                 $string = $string + ";Edge -from " + $this.Children[-1].LinkedBrothers.Last.Value + " -to " + $this.EndNodeid
             }
         }
-
-        # If ( $null -ne $EndIfNode.Next ) {
-        #     Write-Verbose "Graph: While: there is a node after the EndWhile"
-        #     $string = $string + ";Edge -from " + $this.EndnodeId + " -to " + $EndIfNode.Next.Value + " -attributes @{label='LoopEnded'}"
-        # }
-
         
         If ( $null -ne $EndIfNode.Next ) {
             Write-Verbose "Graph: foreach: there is a node after the EndNodeId"
@@ -959,9 +953,7 @@ Class ForNode : node {
             $string = ";Edge -from START -to " + $this.NodeId        
         }
 
-
         ## on cree les bases
-        # $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
         If ( $UseDescription ) {
             $string = $string+";node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
         } Else {
