@@ -1284,13 +1284,9 @@ function New-FCGraph {
     [CmdletBinding()]
     param (
         # an array of node, or a node
-        [Parameter(Mandatory=$False,ValueFromPipeline=$True)]
+        [Parameter(Mandatory=$True,ValueFromPipeline=$True)]
         [Node[]]
         $Node,
-        # # Whether or not to show the graph, default=$true
-        # [Parameter(Mandatory=$False)]
-        # [Switch]
-        # $Show=$True,
         # Name of the graph
         [Parameter(Mandatory=$False)]
         [String]
