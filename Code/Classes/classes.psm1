@@ -240,19 +240,26 @@ class node {
         }
     }
 
+    ## Method to find description
+    ## Description should be right beneath a statement an look like this:
+    ## # Description: Something to describe
     [void] FindDescription () {
-        write-Verbose "$($this.Type)"
+        Write-Verbose "Node: FinDescription()..."
         $comment = [System.Management.Automation.PSParser]::Tokenize($this.Code, [ref]$null) | Where-Object { $_.type -eq "comment" -And $_.StartLine -eq 2 }
-        # $this.Description = $this.Statement
 
         If ( $comment ) {
+            Write-Verbose "Node: FinDescription, Comment Found.."
             If ( $comment[0].Content -match "Description:(?<description>\s?[\w\s]+)" ) {
                 $this.Description = $Matches.description.Trim() 
+            } Else {
+                Write-Verbose "Node: FinDescription, Comment does not Match Description KeyWord, Setting Statement as Description.."
+                $this.Description = $this.Statement
             }
         }
     
     }
 
+    ## Override Method to find description, Do it Recursively
     [void] FindDescription ([Bool]$Recurse) {
         Write-Verbose "Node: FinDescription([Bool]`$Recurse)..."
         $comment = [System.Management.Automation.PSParser]::Tokenize($this.Code, [ref]$null) | Where-Object { $_.type -eq "comment" -And $_.StartLine -eq 2 }
@@ -270,6 +277,7 @@ class node {
         $this.Children.FindDescription($Recurse)
     }
 
+    ## Override Method to find description, Do it Recursively, with a specific keyword
     [void] FindDescription ([Bool]$Recurse, [string]$KeyWord) {
         Write-Verbose "Node: FinDescription([Bool]`$Recurse, [string]`$KeyWord)..."
         $comment = [System.Management.Automation.PSParser]::Tokenize($this.Code, [ref]$null) | Where-Object { $_.type -eq "comment" -And $_.StartLine -eq 2 }
@@ -290,7 +298,7 @@ class node {
     
     }
 
-    ## Pour Setter la description
+    ## Method to set a description, recursively or not
     [void] SetDescription ([Bool]$Recurse) {
 
         $this.FindDescription()
