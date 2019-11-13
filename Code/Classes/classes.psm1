@@ -3,29 +3,38 @@ using namespace System.Management.Automation.Language
 class nodeutility {
 
     [node[]] static ParseFile ([string]$File) {
+        $x = [System.Collections.Generic.list[node]]@()
         $ParsedFile = [Parser]::ParseFile($file, [ref]$null, [ref]$Null)
+        # $ParsedFile = [Parser]::ParseFile('C:\Temp\FLowChart-test_new_base_parsing\Code\Tests\testingforeach.ps1', [ref]$null, [ref]$Null)
         $RawAstDocument = $ParsedFile.FindAll( { $args[0] -is [Ast] }, $false)
         $LinkedList = [System.Collections.Generic.LinkedList[string]]::new()
-        $x = @()
-        $RawAstDocument | ForEach-Object {
-            $CurrentRawAst = $PSItem
-            if ( $null -eq $CurrentRawAst.parent.parent.parent ) {
-                $t = [nodeutility]::SetNode($CurrentRawAst)
-                if ( $null -ne $t) {
-                    Write-Verbose "NIVEAU 1: $($t.Statement)"
-                    $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($t.Nodeid)
+        $i=2
+        $tmp = $false
+        while ( $i -lt $RawAstDocument.count ) {
+            if ( $null -eq $RawAstDocument[$i].parent.parent.parent ) {
+                If ( $RawAstDocument[$i].GetType() -in [nodeutility]::GetASTitems() ) {
+                    $tmp = $true
+                    $node = [nodeutility]::SetNode($RawAstDocument[$i])
+                    $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
                     $LinkedList.AddLast($LinkedNode)
-                    $t.LinkedBrothers = $LinkedList
-                    $t.LinkedNodeId = $LinkedNode
-                
-                    $x += $t
-
-                    If ( $t.Type -NotIn ("Else", "ElseIf", "SwitchCase", "SwitchDefault")) {
-                        $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_" + $t.Nodeid)
-                        $LinkedList.AddAfter($LinkedNode, $LinkedNodeNext)
+                    $node.LinkedBrothers = $LinkedList
+                    $node.LinkedNodeId = $LinkedNode
+                    $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_" + $node.Nodeid)
+                    $LinkedList.AddAfter($LinkedNode, $LinkedNodeNext)
+                    $x.Add($node)
+                } else {
+                    if ( ( $tmp -and ($i -gt 2) ) -or ( ($i -eq 2) -or ($i -eq $RawAstDocument.count) ) ) {
+                        $tmp = $false
+                        $node = [BlockProcess]::new()
+                        $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
+                        $LinkedList.AddLast($LinkedNode)
+                        $node.LinkedBrothers = $LinkedList
+                        $node.LinkedNodeId = $LinkedNode
+                        $x.Add($node)
                     }
                 }
             }
+            $i++
         }
         return $x
     }
@@ -114,10 +123,10 @@ class node {
     }
 
     node ([node]$f) {
+        $this.Parent = $f
         $this.SetDepth()
         $this.Guid()
         $this.EndNodeid = $this.Nodeid
-        $this.Parent = $f
     }
 
     node ([Ast]$e) {
@@ -245,26 +254,36 @@ class node {
     }
 
     [void] FindDescription ([Bool]$Recurse) {
-        write-Verbose "$($this.Type)"
+        Write-Verbose "Node: FinDescription([Bool]`$Recurse)..."
         $comment = [System.Management.Automation.PSParser]::Tokenize($this.Code, [ref]$null) | Where-Object { $_.type -eq "comment" -And $_.StartLine -eq 2 }
-        # $this.Description = $this.Statement
 
         If ( $comment ) {
+            Write-Verbose "Node: FinDescription, Comment Found.."
             If ( $comment[0].Content -match "Description:(?<description>\s?[\w\s]+)" ) {
+                Write-Verbose "Node: FinDescription, Comment does Match Description KeyWord.."
                 $this.Description = $Matches.description.Trim() 
             }
+        } Else {
+            Write-Verbose "Node: FinDescription, Comment does not Match Description KeyWord, Setting Statement as Description.."
+            $this.Description = $this.Statement
         }
         $this.Children.FindDescription($Recurse)
     }
 
     [void] FindDescription ([Bool]$Recurse, [string]$KeyWord) {
+        Write-Verbose "Node: FinDescription([Bool]`$Recurse, [string]`$KeyWord)..."
         $comment = [System.Management.Automation.PSParser]::Tokenize($this.Code, [ref]$null) | Where-Object { $_.type -eq "comment" -And $_.StartLine -eq 2 }
         # $this.Description = $this.Statement
 
         If ( $comment ) {
+            Write-Verbose "Node: FinDescription, Comment Found.."
             If ( $comment[0].Content -match "$($KeyWord):(?<description>\s?[\w\s]+)" ) {
+                Write-Verbose "Node: FinDescription, Comment does Match $KeyWord KeyWord.."
                 $this.Description = $Matches.description.Trim() 
             }
+        } else {
+            Write-Verbose "Node: FinDescription, Comment does not Match Description $KeyWord, Setting Statement as Description.."
+            $this.Description = $this.Statement
         }
     
         $this.Children.FindDescription($Recurse, $KeyWord)
@@ -1125,23 +1144,43 @@ Class DoWhileNode : node {
 Class BlockProcess : node {
     [string]$Type = "BlockProcess"
 
+    BlockProcess () : base () {
+        $this.Statement = "ProcessBlock"
+    }
+
     BlockProcess ($f) : base ($f) {
         $this.Statement = "ProcessBlock"
     }
 
     [string] graph ($UseDescription) {
-        # $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "'}"
+        $string = ""
+
+        ## On stocke le noeud de fin
+        $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
+
+        ## si on a pas de previous node, et niveau 1
+        If ( ($this.Depth -eq 1) -And ($null -eq $this.LinkedNodeId.Previous) ) {
+            write-Verbose "Graph: If: Drawing START NODE"
+            $string = ";Edge -from START -to " + $this.NodeId        
+        }
+
+        ## si on a pas de next node, et niveau 1
+        If ( ($this.Depth -eq 1) -And ($null -eq $EndIfNode.Next) ) {
+            write-Verbose "Graph: DoWhile: Drawing END NODE"
+            $string = $string + ";Edge -from " + $this.EndNodeid + " -to END"
+        }
+
         If ( $UseDescription ) {
-            $string = "node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
+            $string = $string +";node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
         } Else {
-            $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+            $string = $string +";node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
         }
 
         ## OK çA MARCHE PAS PARCEQUE BLOCKPROCESS N A PAS DE PARENT !
         if ( $null -ne $this.LinkedNodeId.next ) {
             $NextNode = $this.parent.Children.where({$_.NodeID -eq $this.LinkedNodeId.next.Value})
             If ( $NextNode.Type -notlike "Else*" ) {
-                Write-Verbose "Graph: foreach: the next node is not a else/elseif"
+                Write-Verbose "Graph: BlockProcess: the next node is not a else/elseif"
                 $string = $string + ";Edge -from " + $this.EndnodeId + " -to " + $this.LinkedNodeId.next.Value
             }
             

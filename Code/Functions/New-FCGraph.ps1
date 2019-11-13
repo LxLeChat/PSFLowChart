@@ -1,8 +1,44 @@
 function New-FCGraph {
+    <#
+    .SYNOPSIS
+        Draw a script flowchart
+    .DESCRIPTION
+        Draw a script flowchart
+    .EXAMPLE
+        PS C:\> New-FCGraph -Node $a -Name test
+        Draw a script flowchart. $a contains all the nodes present in a ps1 script file.
+    .EXAMPLE
+        PS C:\> Find-FCNode -File .\basic_example_1.ps1 -FindDescription | New-FCGraph -DescriptionAsLabe
+        Draw a script flowchart. Will user node(s) descirption as Label(s).
+    .INPUTS
+        Inputs (if any)
+    .OUTPUTS
+        Output (if any)
+    .NOTES
+        General notes
+    #>
     [CmdletBinding()]
     param (
-        [node[]]$node,
-        [switch]$DescriptionAsLabel
+        # Parameter help description
+        [Parameter(Mandatory=$False,ValueFromPipeline=$True)]
+        [Node[]]
+        $Node,
+        # # Whether or not to show the graph, default=$true
+        # [Parameter(Mandatory=$False)]
+        # [Switch]
+        # $Show=$True,
+        # Name of the graph
+        [Parameter(Mandatory=$False)]
+        [String]
+        $Name="NewGraph",
+        # Parameter help description
+        [Parameter(Mandatory=$False)]
+        [Switch]
+        $DescriptionAsLabel,
+        # Passthru
+        [Parameter(Mandatory=$False)]
+        [Switch]
+        $PassThru
     )
     
     begin {
@@ -11,14 +47,20 @@ function New-FCGraph {
     
     process {
         If ( $DescriptionAsLabel ) {
-            $node.FindDescription($True)
+            $string = $node.graph($True)
+        } Else {
+            $string=$node.graph($False)
         }
 
-        $string=$node.graph($DescriptionAsLabel)
         $s = $string | out-string
         $plop = [scriptblock]::Create($s).invoke()
-        $graph = graph "lol" {$plop}
-        $graph | show-psgraph
+        $graph = graph "$Name" {$plop}
+
+        If ( $PassThru ) {
+            $graph
+        } Else {
+            $graph | show-psgraph
+        }
     }
     
     end {
