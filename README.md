@@ -1,4 +1,4 @@
-# FLowChart
+# PSFLowChart
 Draw PS1 script FlowChart.
 It's still a work in progress ! building the script is done manually, no tests, etc... !
 
