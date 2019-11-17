@@ -458,12 +458,12 @@ Class IfNode : node {
         }
 
         write-verbose "GRAPH: IF: DRAWING IF NODE"
-        # $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        # $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""|\*", '') + "';shape='"+$this.DefaultShape+"'}"
         ## on cree les bases
         If ( $UseDescription ) {
             $string = $string+";node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
         } Else {
-            $string = $string+";node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+            $string = $string+";node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""|\*", '') + "';shape='"+$this.DefaultShape+"'}"
         }
         write-verbose "GRAPH: IF: DRAWING ENDIF NODE"
         $string = $string + ";node " + $this.EndNodeid + " -attributes @{shape='point'}"
@@ -526,11 +526,11 @@ Class ElseIfNode : node {
 
     [string] graph ($UseDescription) {
 
-        # $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        # $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""|\*", '') + "';shape='"+$this.DefaultShape+"'}"
         If ( $UseDescription ) {
             $string = "node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
         } Else {
-            $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+            $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""|\*", '') + "';shape='"+$this.DefaultShape+"'}"
         }
 
         If ( $null -ne $This.LinkedNodeId.Next ) {
@@ -568,11 +568,11 @@ Class ElseNode : node {
 
     [string] graph ($UseDescription) {
 
-        # $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        # $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""|\*", '') + "';shape='"+$this.DefaultShape+"'}"
         If ( $UseDescription ) {
             $string = "node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
         } Else {
-            $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+            $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""|\*", '') + "';shape='"+$this.DefaultShape+"'}"
         }
 
         If ( $this.Children.count -gt 0 ) {
@@ -659,11 +659,11 @@ Class SwitchNode : node {
         }
 
         ## Creation des noeuds de base
-        # $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        # $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""|\*", '') + "';shape='"+$this.DefaultShape+"'}"
         If ( $UseDescription ) {
             $string = $string + ";node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
         } Else {
-            $string = $string + ";node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+            $string = $string + ";node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""|\*", '') + "';shape='"+$this.DefaultShape+"'}"
         }
         
         $string = $string + ";node " + $this.EndNodeid + " -attributes @{shape='point'}"
@@ -718,11 +718,11 @@ Class SwitchDefaultNode : node {
 
     [String] graph ($UseDescription) {
         ## Creation des noeuds de base
-        # $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        # $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""|\*", '') + "';shape='"+$this.DefaultShape+"'}"
         If ( $UseDescription ) {
             $string = "node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
         } Else {
-            $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+            $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""|\*", '') + "';shape='"+$this.DefaultShape+"'}"
         }
        
         $string = $string + ";node " + $this.EndNodeid + " -attributes @{shape='point'}"
@@ -755,11 +755,11 @@ Class SwitchCaseNode : node {
 
     [String] graph ($UseDescription) {
         ## Creation des noeuds de base
-        # $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        # $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""|\*", '') + "';shape='"+$this.DefaultShape+"'}"
         If ( $UseDescription ) {
             $string = "node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
         } Else {
-            $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+            $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""|\*", '') + "';shape='"+$this.DefaultShape+"'}"
         }
         $string = $string + ";node " + $this.EndNodeid + " -attributes @{shape='point'}"
         $string = $string + ";Edge -from " + $this.EndNodeId + " -to " + $this.Parent.EndNodeid
@@ -806,11 +806,11 @@ Class ForeachNode : node {
         }
 
         ## Noeud et edge de base
-        # $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        # $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""|\*", '') + "';shape='"+$this.DefaultShape+"'}"
         If ( $UseDescription ) {
             $string = $string+";node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
         } Else {
-            $string = $string+";node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+            $string = $string+";node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""|\*", '') + "';shape='"+$this.DefaultShape+"'}"
         }
         $string = $string + ";node " + $this.EndNodeid + " -attributes @{Label='Next " + $this.raw.Condition + "'}"
         $string = $string + ";Edge -from " + $this.EndNodeid + " -to " + $this.nodeId + " -attributes @{Label='Loop'}"
@@ -885,7 +885,7 @@ Class WhileNode : node {
         If ( $UseDescription ) {
             $string = $string +";node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
         } Else {
-            $string = $string +";node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+            $string = $string +";node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""|\*", '') + "';shape='"+$this.DefaultShape+"'}"
         }
         $string = $string + ";node " + $this.EndNodeid + " -attributes @{Label='If " + $this.raw.Condition + "';shape='diamond'}"
         $string = $string + ";Edge -from " + $this.EndNodeid + " -to " + $this.nodeId + " -attributes @{Label='True, Loop'}"
@@ -957,7 +957,7 @@ Class ForNode : node {
         If ( $UseDescription ) {
             $string = $string+";node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
         } Else {
-            $string = $string+";node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+            $string = $string+";node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""|\*", '') + "';shape='"+$this.DefaultShape+"'}"
         }
         $string = $string + ";node " + $this.EndNodeid + " -attributes @{Label='If " + $this.raw.Condition + "';shape='diamond'}"
         $string = $string + ";Edge -from " + $this.EndNodeid + " -to " + $this.nodeId + " -attributes @{Label='" + $this.raw.Iterator.Extent.Text + "'}"
@@ -1025,13 +1025,13 @@ Class DoUntilNode : node {
         }
 
         ## on cree les bases
-        # $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+        # $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""|\*", '') + "';shape='"+$this.DefaultShape+"'}"
         If ( $UseDescription ) {
             $string = $string+";node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
         } Else {
-            $string = $string+";node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+            $string = $string+";node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""|\*", '') + "';shape='"+$this.DefaultShape+"'}"
         }
-        $string = $string + ";node " + $this.EndNodeid + " -attributes @{Label='Is " + ($this.raw.Condition -replace "'|""", '') + "';shape='diamond'}"
+        $string = $string + ";node " + $this.EndNodeid + " -attributes @{Label='Is " + ($this.raw.Condition -replace "'|""|\*", '') + "';shape='diamond'}"
         $string = $string + ";Edge -from " + $this.EndNodeid + " -to " + $this.nodeId + " -attributes @{Label='False, Loop'}"
 
 
@@ -1101,9 +1101,9 @@ Class DoWhileNode : node {
         If ( $UseDescription ) {
             $string = $string+";node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
         } Else {
-            $string = $string+";node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+            $string = $string+";node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""|\*", '') + "';shape='"+$this.DefaultShape+"'}"
         }
-        $string = $string + ";node " + $this.EndNodeid + " -attributes @{Label='If " + ($this.raw.Condition -replace "'|""", '') + "';shape='diamond'}"
+        $string = $string + ";node " + $this.EndNodeid + " -attributes @{Label='If " + ($this.raw.Condition -replace "'|""|\*", '') + "';shape='diamond'}"
         $string = $string + ";Edge -from " + $this.EndNodeid + " -to " + $this.nodeId + " -attributes @{Label='True, Loop'}"
 
         ## si on a pas de next node, et niveau 1
@@ -1173,7 +1173,7 @@ Class BlockProcess : node {
         If ( $UseDescription ) {
             $string = $string +";node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
         } Else {
-            $string = $string +";node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""", '') + "';shape='"+$this.DefaultShape+"'}"
+            $string = $string +";node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""|\*", '') + "';shape='"+$this.DefaultShape+"'}"
         }
 
         ## OK çA MARCHE PAS PARCEQUE BLOCKPROCESS N A PAS DE PARENT !
