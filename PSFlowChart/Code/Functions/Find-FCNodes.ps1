@@ -27,19 +27,13 @@ function Find-FCNode {
     [CmdletBinding()]
     param (
         # Parameter help description
-        [Parameter(Mandatory=$True,
-        ValueFromPipelineByPropertyName=$True,Position=1)]
+        [Parameter(Mandatory=$False,
+        ValueFromPipelineByPropertyName=$True,Position=0,ParameterSetName="File")]
         [Alias("FullName")]
         [String[]]
         $File,
-        # Whether you want ton find associated node description
-        [Parameter(Mandatory=$False,ParameterSetName='Description')]
-        [Switch]
-        $FindDescription,
-        # The KeyWord representing the begining of your comment, default: Description
-        [Parameter(Mandatory=$False,ParameterSetName='Description')]
-        [String]
-        $KeyWord = $null
+        [Parameter(Mandatory=$False,ParameterSetName="ScriptBlock"]
+        [Scriptblock]$ScritpBlock
     )
     
     begin {
@@ -47,17 +41,18 @@ function Find-FCNode {
     }
     
     process {
-
-        $FileInfo = Get-Item $File
-        $x=[nodeutility]::ParseFile($FileInfo.FullName)
-
-        If ( $FindDescription ) {
-            If ( $KeyWord ) {
-                $X.FindDescription($True,$KeyWord)
-            } Else {
-                $X.FindDescription($True)
+        
+        Switch ($PsCmdlet.ParameterSetName) {
+            "File" {
+                $FileInfo = Get-Item $File
+                $x=[node]::ParseFile($FileInfo.FullName)
+            }
+            
+            "ScriptBlock" {
+                $x=[node]::ParseScriptBlock($ScriptBlock)
             }
         }
+        
         return ,$x
 
     }
