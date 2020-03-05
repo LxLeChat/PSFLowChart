@@ -1,74 +1,25 @@
 using namespace System.Management.Automation.Language
 
-class nodeutility {
+enum GraphMode {
+    Debug
+    Standard
+    Description
+}
 
-    [node[]] static ParseFile ([string]$File) {
-        $x = [System.Collections.Generic.list[node]]@()
-        $ParsedFile = [Parser]::ParseFile($file, [ref]$null, [ref]$Null)
-        # $ParsedFile = [Parser]::ParseFile('C:\Temp\FLowChart-test_new_base_parsing\Code\Tests\testingforeach.ps1', [ref]$null, [ref]$Null)
-        $RawAstDocument = $ParsedFile.FindAll( { $args[0] -is [Ast] }, $false)
-        $LinkedList = [System.Collections.Generic.LinkedList[string]]::new()
-        $i=2
-        $tmp = $false
-        while ( $i -lt $RawAstDocument.count ) {
-            if ( $null -eq $RawAstDocument[$i].parent.parent.parent ) {
-                If ( $RawAstDocument[$i].GetType() -in [nodeutility]::GetASTitems() ) {
-                    $tmp = $true
-                    $node = [nodeutility]::SetNode($RawAstDocument[$i])
-                    $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
-                    $LinkedList.AddLast($LinkedNode)
-                    $node.LinkedBrothers = $LinkedList
-                    $node.LinkedNodeId = $LinkedNode
-                    $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_" + $node.Nodeid)
-                    $LinkedList.AddAfter($LinkedNode, $LinkedNodeNext)
-                    $x.Add($node)
-                } else {
-                    if ( ( $tmp -and ($i -gt 2) ) -or ( ($i -eq 2) -or ($i -eq $RawAstDocument.count) ) ) {
-                        $tmp = $false
-                        $node = [BlockProcess]::new()
-                        $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
-                        $LinkedList.AddLast($LinkedNode)
-                        $node.LinkedBrothers = $LinkedList
-                        $node.LinkedNodeId = $LinkedNode
-                        $x.Add($node)
-                    }
-                }
-            }
-            $i++
-        }
-        return $x
-    }
+class node {
+    [String]$Name
+    [String]$Statement
+    [String]$Id
+    [Int]$Depth
+    [Int]$Position
+    [node[]]$Children
+    [node]$Parent
+    [string]$shape
+    $link
+    [string]$Label
+    hidden $RawAST
 
-    [node] static SetNode ([object]$e) {
-        $node = $null
-        Switch ( $e ) {
-            { $psitem -is [IfStatementAst] } { $node = [IfNode]::new($PSItem) }
-            { $psitem -is [ForEachStatementAst] } { $node = [ForeachNode]::new($PSItem) }
-            { $psitem -is [WhileStatementAst] } { $node = [WhileNode]::new($PSItem) }
-            { $psitem -is [SwitchStatementAst] } { $node = [SwitchNode]::new($PSItem) }
-            { $psitem -is [ForStatementAst] } { $node = [ForNode]::new($PSItem) }
-            { $psitem -is [DoUntilStatementAst] } { $node = [DoUntilNode]::new($PSItem) }
-            { $psitem -is [DoWhileStatementAst] } { $node = [DoWhileNode]::new($PSItem) }
-        }
-        return $node
-    }
-
-    ## override with parent, for sublevels
-    [node] static SetNode ([object]$e, [node]$f) {
-        $node = $null
-        Switch ( $e ) {
-            { $psitem -is [IfStatementAst] } { $node = [IfNode]::new($PSItem, $f) }
-            { $psitem -is [ForEachStatementAst] } { $node = [ForeachNode]::new($PSItem, $f) }
-            { $psitem -is [WhileStatementAst] } { $node = [WhileNode]::new($PSItem, $f) }
-            { $psitem -is [SwitchStatementAst] } { $node = [SwitchNode]::new($PSItem, $f) }
-            { $psitem -is [ForStatementAst] } { $node = [ForNode]::new($PSItem, $f) }
-            { $psitem -is [DoUntilStatementAst] } { $node = [DoUntilNode]::new($PSItem, $f) }
-            { $psitem -is [DoWhileStatementAst] } { $node = [DoWhileNode]::new($PSItem, $f) }
-        
-        }
-        return $node
-    }
-
+    ## Methode Static qui retour un tableau de types d'AST qui nous interesse
     [object[]] static GetASTitems () {
         return @(
             [ForEachStatementAst],
@@ -77,1122 +28,1167 @@ class nodeutility {
             [SwitchStatementAst],
             [ForStatementAst],
             [DoUntilStatementAst],
-            [DoWhileStatementAst]
+            [DoWhileStatementAst],
+            [TryStatementAst],
+            [ReturnStatementAst],
+            [ExitStatementAst],
+            [ContinueStatementAst],
+            [BreakStatementAst]
         )
     }
 
-    [String] static SetDefaultShape ([String]$e) {
-        $Shape = $Null
-        Switch ( $e ) {
-            "If" { $Shape = "diamond" }
-            "ElseIf" { $Shape = "diamond" }
-            "Foreach" { $Shape = "parallelogram" }
-            "While" { $Shape = "parallelogram" }
-            "DoWhile" { $Shape = "parallelogram" }
-            "DoUntil" { $Shape = "parallelogram" }
-            "For" { $Shape = "parallelogram" }
-            Defaut { $Shape = "box" }
+    ## Methode Static pour Parser un fichier de script
+    [node[]] static ParseFile ([string]$File) {
+        ## sera retourner
+        $x = @()
+
+        ## On parse le fichier
+        $ParsedFile = [Parser]::ParseFile($file, [ref]$null, [ref]$Null)
+
+        ## un script  commence toujours par un nameblockast, on recherche donc ce type d'AST
+        $NamedBlock = $ParsedFile.find({$args[0] -is [namedblockast]},$false)
         
+        ## Nous Sert pour la position du noeud
+        $i=0
+
+        ## Pour la profondeur de defaut
+        $RootDepth = 0
+
+        ## tmp est utilisé lorsque on a un AST qui n'est pas dans les type qu'on recherche
+        $tmp = $false
+
+        ## creation d'une linkedlist, afin de pouvoir retrouver les noeuds de même niveau
+        $SameLevelNode = [System.Collections.Generic.LinkedList[node]]::new()
+
+        ## On parcour toutes les AST
+        foreach ( $node in  $NamedBlock.FindAll({$args[0] -is [ast]},$false) ) {
+
+            ## Si l'AST est dans les AST qui nou interesse et que le parent de cet AST est le NAMEDBLOCK
+            If ( ($node.GetType() -in [node]::GetASTitems() ) -and ($node.Parent -eq $NamedBlock) ) {
+                $tmp = $false
+                $NewNode = [node]::SetNode($null,$node,$RootDepth,$i)
+                $LinkedNode = [System.Collections.Generic.LinkedListNode[node]]::new($NewNode)
+                $SameLevelNode.AddLast($LinkedNode)
+                $NewNode.Link = $SameLevelNode
+                $x += $NewNode
+                $i++
+            } elseif ( (-not $tmp) -and ($node.parent -eq $NamedBlock) ) {
+                ## SI qu on est pas dans le cas d un AST qui nou interresse et dont le parent est NAMEDBLOCK, est que tmp est false
+                ## on passe tmp a true et on cree un processblock, qui represente tout le code jusqu au prochain AST qui nou interesse
+                $tmp = $true
+                $NewNode = [ProcessBlock]::new($null,$RootDepth,$i)
+                $LinkedNode = [System.Collections.Generic.LinkedListNode[node]]::new($NewNode)
+                $SameLevelNode.AddLast($LinkedNode)
+                $NewNode.Link = $SameLevelNode
+                $x += $NewNode
+                $i++
+            }
+
         }
-        return $Shape
+        return $x
     }
 
-}
+    ## Methode Static pour Parser un ScriptBlock 
+    [node[]] static ParseScriptBlock ([ScriptBlock]$ScriptBlock) {
+        ## sera retourner
+        $x = @()
 
-class node {
-    [string]$Type
-    [string]$Statement
-    [String]$Description
-    $Children = [System.Collections.Generic.List[node]]::new()
-    [node]$Parent
-    [int]$Depth
-    $File
-    hidden $Nodeid
-    hidden $EndNodeid
-    hidden $LinkedBrothers
-    hidden $LinkedNodeId
-    hidden $code
-    hidden $NewContent
-    hidden $raw
-    hidden $DefaultShape
+        ## un script  commence toujours par un nameblockast, on recherche donc ce type d'AST
+        $NamedBlock = $ScriptBlock.Ast.find({$args[0] -is [namedblockast]},$false)
+        
+        ## Nous Sert pour la position du noeud
+        $i=0
 
-    node () {
-        $this.SetDepth()
-        $this.Guid()
-        $this.EndNodeid = $this.Nodeid
+        ## Pour la profondeur de defaut
+        $RootDepth = 0
+
+        ## tmp est utilisé lorsque on a un AST qui n'est pas dans les type qu'on recherche
+        $tmp = $false
+
+        ## creation d'une linkedlist, afin de pouvoir retrouver les noeuds de même niveau
+        # $SameLevelNode = [System.Collections.Generic.LinkedList[string]]::new()
+        $SameLevelNode = [System.Collections.Generic.LinkedList[node]]::new()
+
+        ## On parcour toutes les AST
+        foreach ( $node in  $NamedBlock.FindAll({$args[0] -is [ast]},$false) ) {
+
+            ## Si l'AST est dans les AST qui nou interesse et que le parent de cet AST est le NAMEDBLOCK
+            If ( ($node.GetType() -in [node]::GetASTitems() ) -and ($node.Parent -eq $NamedBlock) ) {
+                $tmp = $false
+                $NewNode = [node]::SetNode($null,$node,$RootDepth,$i)
+                $LinkedNode = [System.Collections.Generic.LinkedListNode[node]]::new($NewNode)
+                $SameLevelNode.AddLast($LinkedNode)
+                $NewNode.Link = $SameLevelNode
+                $x += $NewNode
+                $i++
+            } elseif ( (-not $tmp) -and ($node.parent -eq $NamedBlock) ) {
+                ## SI qu on est pas dans le cas d un AST qui nou interresse et dont le parent est NAMEDBLOCK, est que tmp est false
+                ## on passe tmp a true et on cree un processblock, qui represente tout le code jusqu au prochain AST qui nous interesse
+                $tmp = $true
+                $NewNode = [ProcessBlock]::new($null,$RootDepth,$i)
+                $LinkedNode = [System.Collections.Generic.LinkedListNode[node]]::new($NewNode)
+                $SameLevelNode.AddLast($LinkedNode)
+                $NewNode.Link = $SameLevelNode
+                $x += $NewNode
+                $i++
+            }
+            
+        }
+        return $x
     }
 
-    node ([node]$f) {
-        $this.Parent = $f
-        $this.SetDepth()
-        $this.Guid()
-        $this.EndNodeid = $this.Nodeid
+    ## Method Static permet de retourner un object de type node à partir d'un ast
+    [node] static SetNode ([node]$Parent,[Ast]$Ast,[int]$Depth,[int]$Position) {
+        $node = $null
+        Switch ( $Ast ) {
+            { $psitem -is [IfStatementAst] } { $node = [IfNode]::new($Parent,$PSItem,$Depth,$Position) }
+            { $psitem -is [ForEachStatementAst] } { $node = [ForeachNode]::new($Parent,$PSItem,$Depth,$Position) }
+            { $psitem -is [ForStatementAst] } { $node = [ForNode]::new($Parent,$PSItem,$Depth,$Position) }
+            { $psitem -is [WhileStatementAst] } { $node = [WhileNode]::new($Parent,$PSItem,$Depth,$Position) }
+            { $psitem -is [DoWhileStatementAst] } { $node = [DoWhileNode]::new($Parent,$PSItem,$Depth,$Position) }
+            { $psitem -is [DoUntilStatementAst] } { $node = [DoUntilNode]::new($Parent,$PSItem,$Depth,$Position) }
+            { $psitem -is [TryStatementAst] } { $node = [TryNode]::new($Parent,$PSItem,$Depth,$Position) }
+            { $psitem -is [ExitStatementAst] } { $node = [ExitKeyWord]::new($Parent,$PSItem,$Depth,$Position) }
+            { $psitem -is [SwitchStatementAst] } { $node = [SwitchNode]::new($Parent,$PSItem,$Depth,$Position) }
+            { $psitem -is [ContinueStatementAst] } { $node = [ContinueKeyWord]::new($Parent,$PSItem,$Depth,$Position) }
+            { $psitem -is [BreakStatementAst] } { $node = [BreakKeyWord]::new($Parent,$PSItem,$Depth,$Position) }
+        }
+        return $node
     }
 
-    node ([Ast]$e) {
-        $this.raw = $e
-        $this.file = $e.extent.file
-        $this.SetDepth()
-        $this.Guid()
-        $this.DefaultShape = [nodeutility]::SetDefaultShape($this.Type)
-        $this.EndNodeid = "End_" + $this.Nodeid
+    ## Constructeur vide, necessaire pour l'heritage
+    node(){}
+
+    ## Constructeur dédié aux processblock
+    node ([node]$Parent,[int]$Depth,[int]$position) {
+        Write-Verbose "$($this.Gettype().Name) --> Constructor, Depth -> $($Depth), Position -> $($Position)"
+        $this.Name = $this.GetType().Name
+        $this.Depth = $Depth
+        $this.Position = $position
+        $this.Parent = $Parent
+        If ( $this.Depth -gt 0 ) {
+            $this.Id = "{0}{1}{2}" -f $this.Parent.Id,$this.Depth.ToString(),$this.Position.ToString()
+        } else {
+            $this.Id = "{0}{1}" -f $this.Depth.ToString(),$this.Position.ToString()
+        }
+        
     }
 
-    node ([Ast]$e, [node]$f) {
-        Write-Verbose $("File:" + $e.extent.file )
-        $this.raw = $e
-        $this.parent = $f
-        $this.file = $e.extent.file
-        $this.SetDepth()
-        $this.Guid()
-        $this.DefaultShape = [nodeutility]::SetDefaultShape($this.Type)
-        $this.EndNodeid = "End_" + $this.Nodeid
+    ## Pour les noeuds normaux
+    node ([node]$Parent,[Ast]$Ast,[int]$Depth,[int]$position) {
+        Write-Verbose "$($this.Gettype().Name) --> Constructor, Depth -> $($Depth), Position -> $($Position)"
+        $this.Name = $this.GetType().Name
+        $this.Depth = $Depth
+        $this.RawAST = $Ast
+        $this.Position = $position
+        $this.Parent = $Parent
+        If ( $this.Depth -gt 0 ) {
+            $this.Id = "{0}{1}{2}" -f $this.Parent.Id,$this.Depth.ToString(),$this.Position.ToString()
+        } else {
+            $this.Id = "{0}{1}" -f $this.Depth.ToString(),$this.Position.ToString()
+        }
+
+        ## on cherche les enfants
+        $this.findChildren()
     }
 
-    ## override with parent, for sublevels
-    [void] FindChildren ([Ast[]]$e, [node]$f) {
-        $LinkedList = [System.Collections.Generic.LinkedList[string]]::new()
-    
+    ## Remplit la propriété children pour le noeud
+    [void] FindChildren () {
+
+        ## Nous Sert pour la position du noeud
         $i=0
         $tmp = $false
-        while ( $i -lt $e.count ) {
-            If ( $e[$i].GetType() -in [nodeutility]::GetASTitems() ) {
-                Write-Verbose "FINDCHILDREN: AST Type NODE TROUVEE, $($this.Statement)"
-                $tmp = $true
-                $node = [nodeutility]::SetNode($e[$i], $f)
-                $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
-                $LinkedList.AddLast($LinkedNode)
-                $node.LinkedBrothers = $LinkedList
-                $node.LinkedNodeId = $LinkedNode
-                $this.Children.add($node)
-                If ( $node.Type -NotIn ("Else", "ElseIf", "SwitchCase", "SwitchDefault")) {
-                    $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_" + $node.Nodeid)
-                    $LinkedList.AddAfter($LinkedNode, $LinkedNodeNext)
-                }
-            } else {
-                Write-Verbose "FINDCHILDREN: AST Type NOK, TEST PROCESS, $($this.Statement)"
-                if ( ( $tmp -and ($i -gt 0) ) -or ( ($i -eq 0) -or ($i -eq $e.count) ) ) {
-                    Write-Verbose "FINDCHILDREN: AST Type NOK CACA BOUDIN, $($this.Statement)"
-                    $tmp = $false
-                    $node = [BlockProcess]::new($f)
-                    $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
-                    $LinkedList.AddLast($LinkedNode)
-                    $node.LinkedBrothers = $LinkedList
-                    $node.LinkedNodeId = $LinkedNode
-                    $this.Children.add($node)
-                }
-            }
-            $i++
-        }
 
-        If ( $this.Children.count -eq 0 ) {
-            $node = [BlockProcess]::new($f)
-            $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
-            $LinkedList.AddLast($LinkedNode)
-            $node.LinkedBrothers = $LinkedList
-            $node.LinkedNodeId = $LinkedNode
-            $this.Children.add($node)
-        }
-    }
+        ## creation d'une linkedlist, afin de pouvoir retrouver les noeuds de même niveau
+        # $SameLevelNode = [System.Collections.Generic.LinkedList[string]]::new()
+        $SameLevelNode = [System.Collections.Generic.LinkedList[node]]::new()
 
-    ## override pour le if
-    [void] FindChildren ([Ast[]]$e, [node]$f, $LinkedList) {
-    
-        $i=0
-        $tmp = $false
-        while ( $i -lt $e.count ) {
-            If ( $e[$i].GetType() -in [nodeutility]::GetASTitems() ) {
-                Write-Verbose "FINDCHILDREN: AST Type NODE TROUVEE, $($this.Statement)"
-                $tmp = $true
-                $node = [nodeutility]::SetNode($e[$i], $f)
-                $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
-                $LinkedList.AddLast($LinkedNode)
-                $node.LinkedBrothers = $LinkedList
-                $node.LinkedNodeId = $LinkedNode
-                $this.Children.add($node)
-                If ( $node.Type -NotIn ("Else", "ElseIf", "SwitchCase", "SwitchDefault")) {
-                    $LinkedNodeNext = [System.Collections.Generic.LinkedListNode[string]]::new("End_" + $node.Nodeid)
-                    $LinkedList.AddAfter($LinkedNode, $LinkedNodeNext)
-                }
-            } else {
-                Write-Verbose "FINDCHILDREN: AST Type NOK, TEST PROCESS, $($this.Statement)"
-                if ( ( $tmp -and ($i -gt 0) ) -or ( ($i -eq 0) -or ($i -eq $e.count) ) ) {
-                    Write-Verbose "FINDCHILDREN: AST Type NOK CACA BOUDIN, $($this.Statement)"
-                    $tmp = $false
-                    $node = [BlockProcess]::new($f)
-                    $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
-                    $LinkedList.AddLast($LinkedNode)
-                    $node.LinkedBrothers = $LinkedList
-                    $node.LinkedNodeId = $LinkedNode
-                    $this.Children.add($node)
+        ## En fonction du type, pour le If c'est différent car un tuple, et on veut que le else ou le elseif soit un enfant
+        Switch ($this) {
+
+            ## FindChildren() quand le type: ForeachNode, ForNode, WhileNode, DoWhileNode, DoUntilNode, CatchNode
+            { ($PSItem -is [ForeachNode]) -or ($PSItem -is [ForNode]) -or ($PSItem -is [WhileNode]) -or ($PSItem -is [DoWhileNode]) -or ($PSItem -is [DoUntilNode]) -or ($PSItem -is [CatchNode]) } {
+                
+                Write-Verbose "$($this.Gettype().Name) -> FindChildren()"
+                foreach ( $node in $this.RawAST.Body.FindAll({$args[0] -is [ast] },$false) ) {
+                    ## Si l'AST est dans les AST qui nous interesse et que le parent de cet AST est le NAMEDBLOCK
+                    If ( ( $node.GetType() -in [node]::GetASTitems() ) -and ($node.Parent -eq $this.RawAST.Body) ) {
+                        $tmp = $false
+                        $NewNode = [node]::SetNode($this,$node,$this.Depth+1,$i)
+                        $LinkedNode = [System.Collections.Generic.LinkedListNode[node]]::new($NewNode)
+                        $SameLevelNode.AddLast($LinkedNode)
+                        $NewNode.Link = $SameLevelNode
+                        $this.Children += $NewNode
+                        $i++
+                    }
+
+                    If ( ( $node.GetType() -notin [node]::GetASTitems() )-and (-not $tmp) -and ($node.parent -eq $this.RawAST.Body) ) {
+                        $tmp = $true
+                        $NewNode = [ProcessBlock]::new($this,$this.Depth+1,$i)
+                        $LinkedNode = [System.Collections.Generic.LinkedListNode[node]]::new($NewNode)
+                        $SameLevelNode.AddLast($LinkedNode)
+                        $NewNode.Link = $SameLevelNode
+                        $this.Children+= $NewNode
+                        $i++
+                    }
                 }
             }
-            $i++
+
+            ## FindChildren() quand le type: IfNode
+            ([IfNode])   {
+                Write-Verbose "$($this.Gettype().Name) -> FindChildren()"
+                ## Clauses[0] represent le corps du if {}
+                foreach ( $node in $this.RawAST.Clauses[0].Item2.FindAll({$args[0] -is [ast] },$false) ) {
+                    ## Si l'AST est dans les AST qui nous interesse et que le parent de cet AST est le NAMEDBLOCK
+                    If (  ( $node.GetType() -in [node]::GetASTitems() ) -and ($node.Parent -eq $this.RawAST.Clauses[0].Item2) ) {
+                        $tmp = $false
+                        $NewNode = [node]::SetNode($this,$node,$this.Depth+1,$i)
+                        $LinkedNode = [System.Collections.Generic.LinkedListNode[node]]::new($NewNode)
+                        $SameLevelNode.AddLast($LinkedNode)
+                        $NewNode.Link = $SameLevelNode
+                        $this.Children += $NewNode
+                        $i++
+                    }
+
+                    If ( ( $node.GetType() -notin [node]::GetASTitems() ) -and (-not $tmp) -and ($node.parent -eq $this.RawAST.Clauses[0].Item2) ) {
+                        $tmp = $true
+                        $NewNode = [ProcessBlock]::new($this,$this.Depth+1,$i)
+                        $LinkedNode = [System.Collections.Generic.LinkedListNode[node]]::new($NewNode)
+                        $SameLevelNode.AddLast($LinkedNode)
+                        $NewNode.Link = $SameLevelNode
+                        $this.Children += $NewNode
+                        $i++
+                    }
+                }
+
+                ## Si on a d'autres Clauses, c'est qu on a des elseif
+                If ( $this.RawAST.Clauses.Count -gt 1) {
+                    ## La clause 0 étant le contenu du If {}
+                    for ($Clause = 1; $Clause -lt $this.RawAST.Clauses.Count; $Clause++){
+                        $NewNode = [ElseIfNode]::New($this,$this.RawAST.Clauses[$Clause].Item2,$this.Depth+1,$i)
+                        $LinkedNode = [System.Collections.Generic.LinkedListNode[node]]::new($NewNode)
+                        $SameLevelNode.AddLast($LinkedNode)
+                        $NewNode.Link = $SameLevelNode
+                        $this.Children += $NewNode
+                        $i++
+                    }
+                }
+
+                ## Si le parametre ElseClause existe on a un else
+                If ( $this.RawAST.ElseClause ) {
+                    $NewNode = [ElseNode]::New($this,$this.RawAST.ElseClause,$this.Depth+1,$i)
+                    $LinkedNode = [System.Collections.Generic.LinkedListNode[node]]::new($NewNode)
+                    $SameLevelNode.AddLast($LinkedNode)
+                    $NewNode.Link = $SameLevelNode
+                    $this.Children += $NewNode
+                }
+            }
+
+            ## FindChildren() quand le type: IfNode
+            ([SwitchNode])   {
+                Write-Verbose "$($this.Gettype().Name) -> FindChildren()"
+
+                ## On cree des switchcaseNode pour chaque case
+                for ($Clause = 0; $Clause -lt $this.RawAST.Clauses.Count; $Clause++){
+                    $NewNode = [SwitchCaseNode]::New($this,$this.RawAST.Clauses[$Clause].Item2,$this.Depth+1,$i)
+                    $LinkedNode = [System.Collections.Generic.LinkedListNode[node]]::new($NewNode)
+                    $SameLevelNode.AddLast($LinkedNode)
+                    $NewNode.Link = $SameLevelNode
+                    $this.Children += $NewNode
+                    $i++
+                }
+
+                ## Si le parametre Default existe on a un Default
+                If ( $this.RawAST.Default ) {
+                    $NewNode = [SwitchDefaultNode]::New($this,$this.RawAST.Default,$this.Depth+1,$i)
+                    $LinkedNode = [System.Collections.Generic.LinkedListNode[node]]::new($NewNode)
+                    $SameLevelNode.AddLast($LinkedNode)
+                    $NewNode.Link = $SameLevelNode
+                    $this.Children += $NewNode
+                }
+            }
+
+            ## FindChildren() quand le type: ElseNode, ElseIfNode
+            { ($PSItem -is [ElseNode]) -or ($PSItem -is [ElseIfNode]) -or ($PSItem -is [SwitchCaseNode]) -or ($PSItem -is [SwitchDefaultNode]) -or ($PSItem -is [FinallyNode]) } {
+                Write-Verbose "$($this.Gettype().Name) -> FindChildren()"
+                foreach ( $node in $this.RawAST.FindAll({ $args[0] -is [ast] },$false) ) {
+                    ## Si l'AST est dans les AST qui nous interesse et que le parent de cet AST est le NAMEDBLOCK
+                    If ( ( $node.GetType() -in [node]::GetASTitems() ) -and ($node.Parent -eq $this.RawAST) ) {
+                        $tmp = $false
+                        $NewNode = [node]::SetNode($this,$node,$this.Depth+1,$i)
+                        $LinkedNode = [System.Collections.Generic.LinkedListNode[node]]::new($NewNode)
+                        $SameLevelNode.AddLast($LinkedNode)
+                        $NewNode.Link = $SameLevelNode
+                        $this.Children += $NewNode
+                        $i++
+                    }
+
+                    ## si c'est pas dans les ast qu on cherche que tmp n'est pas false et que le parent est bien l'ast parent on créé un processblock
+                    If ( ( $node.GetType() -notin [node]::GetASTitems() ) -and (-not $tmp) -and ($node.parent -eq $this.RawAST) ) {
+                        $tmp = $true
+                        $NewNode = [ProcessBlock]::new($this,$this.Depth+1,$i)
+                        $LinkedNode = [System.Collections.Generic.LinkedListNode[node]]::new($NewNode)
+                        $SameLevelNode.AddLast($LinkedNode)
+                        $NewNode.Link = $SameLevelNode
+                        $this.Children += $NewNode
+                        $i++
+                    }
+                }
+                
+            }
+
+            ## FindChildren() quand le type: TryNode
+            ([TryNode])  {
+                Write-Verbose "$($this.Gettype().Name) -> FindChildren()"
+                foreach ( $node in $this.RawAST.Body.FindAll({$args[0] -is [ast] },$false) ) {
+                    ## Si l'AST est dans les AST qui nous interesse et que le parent de cet AST est le NAMEDBLOCK
+                    If ( ( $node.GetType() -in [node]::GetASTitems() ) -and ($node.Parent -eq $this.RawAST.Body) ) {
+                        $tmp = $false
+                        $NewNode = [node]::SetNode($this,$node,$this.Depth+1,$i)
+                        $LinkedNode = [System.Collections.Generic.LinkedListNode[node]]::new($NewNode)
+                        $SameLevelNode.AddLast($LinkedNode)
+                        $NewNode.Link = $SameLevelNode
+                        $this.Children += $NewNode
+                        $i++
+                    }
+
+                    If ( ($node -is [PipelineAst]) -and (-not $tmp) -and ($node.parent -eq $this.RawAST.Body) ) {
+                        $tmp = $true
+                        $NewNode = [ProcessBlock]::new($this,$this.Depth+1,$i)
+                        $LinkedNode = [System.Collections.Generic.LinkedListNode[node]]::new($NewNode)
+                        $SameLevelNode.AddLast($LinkedNode)
+                        $NewNode.Link = $SameLevelNode
+                        $this.Children += $NewNode
+                        $i++
+                    }
+                }
+
+                ## On parcour le/les catcheclauses du try et on les ajoute aux children
+                for ($Clause = 0; $Clause -lt $this.RawAST.CatchClauses.Count; $Clause++){
+                    $NewNode = [CatchNode]::New($this,$this.RawAST.CatchClauses[$Clause],$this.Depth+1,$i)
+                    $LinkedNode = [System.Collections.Generic.LinkedListNode[node]]::new($NewNode)
+                    $SameLevelNode.AddLast($LinkedNode)
+                    $NewNode.Link = $SameLevelNode
+                    $this.Children += $NewNode
+                    $i++
+                }
+
+                ## si le il y a un block finally
+                if ( $this.RawAST.Finally ) {
+                    $NewNode = [FinallyNode]::New($this,$this.RawAST.Finally,$this.Depth+1,$i)
+                    $LinkedNode = [System.Collections.Generic.LinkedListNode[node]]::new($NewNode)
+                    $SameLevelNode.AddLast($LinkedNode)
+                    $NewNode.Link = $SameLevelNode
+                    $this.Children += $NewNode
+                }
+            }
+
         }
 
-        If ( $this.Children.count -eq 0 ) {
-            $node = [BlockProcess]::new($f)
-            $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
-            $LinkedList.AddLast($LinkedNode)
-            $node.LinkedBrothers = $LinkedList
-            $node.LinkedNodeId = $LinkedNode
-            $this.Children.add($node)
+        ## Si le noeud n'a pas d'enfant
+        ## et n'est pas des types definis...
+        ## on ajoute un child
+        if ( ($this.Children.Count -eq 0) -and ($this.GetType() -notin [ProcessBlock],[ContinuekeyWord],[BreakKeyWord],[ExitKeyWord] ) ) {
+            $NewNode = [ProcessBlock]::new($this,$this.Depth+1,$i)
+            $LinkedNode = [System.Collections.Generic.LinkedListNode[node]]::new($NewNode)
+            $SameLevelNode.AddLast($LinkedNode)
+            $NewNode.Link = $SameLevelNode
+            $this.Children += $NewNode
         }
+
     }
 
-    ## Method to find description
-    ## Description should be right beneath a statement an look like this:
-    ## # Description: Something to describe
-    [void] FindDescription () {
-        Write-Verbose "Node: FinDescription()..."
-        $comment = [System.Management.Automation.PSParser]::Tokenize($this.Code, [ref]$null) | Where-Object { $_.type -eq "comment" -And $_.StartLine -eq 2 }
+    ## Method qui permet de trouver tous les noeud par type en recursif
+    [node[]] FindNodeByType ([System.Type]$TypeToFind){
+        $nodes = @()
 
-        If ( $comment ) {
-            Write-Verbose "Node: FinDescription, Comment Found.."
-            If ( $comment[0].Content -match "Description:(?<description>\s?[\w\s]+)" ) {
-                $this.Description = $Matches.description.Trim() 
-            } Else {
-                Write-Verbose "Node: FinDescription, Comment does not Match Description KeyWord, Setting Statement as Description.."
-                $this.Description = $this.Statement
+        If ( $this.Children.count -gt 0 ) {
+            foreach ( $child in $this.Children ) {
+                If ( $child -is $TypeToFind ) {
+                    $nodes += $child
+                }
+                Else {
+                    $tmp = $child.FindNodeByType($TypeToFind)
+                    If ( $tmp.count -gt 0 ) {
+                        $tmp.ForEach({$nodes+=$_})
+                    }
+                }
             }
         }
-    
+        return $nodes
     }
 
-    ## Override Method to find description, Do it Recursively
-    [void] FindDescription ([Bool]$Recurse) {
-        Write-Verbose "Node: FinDescription([Bool]`$Recurse)..."
-        $comment = [System.Management.Automation.PSParser]::Tokenize($this.Code, [ref]$null) | Where-Object { $_.type -eq "comment" -And $_.StartLine -eq 2 }
-
-        If ( $comment ) {
-            Write-Verbose "Node: FinDescription, Comment Found.."
-            If ( $comment[0].Content -match "Description:(?<description>\s?[\w\s]+)" ) {
-                Write-Verbose "Node: FinDescription, Comment does Match Description KeyWord.."
-                $this.Description = $Matches.description.Trim() 
-            }
-        } Else {
-            Write-Verbose "Node: FinDescription, Comment does not Match Description KeyWord, Setting Statement as Description.."
-            $this.Description = $this.Statement
-        }
-        $this.Children.FindDescription($Recurse)
-    }
-
-    ## Override Method to find description, Do it Recursively, with a specific keyword
-    [void] FindDescription ([Bool]$Recurse, [string]$KeyWord) {
-        Write-Verbose "Node: FinDescription([Bool]`$Recurse, [string]`$KeyWord)..."
-        $comment = [System.Management.Automation.PSParser]::Tokenize($this.Code, [ref]$null) | Where-Object { $_.type -eq "comment" -And $_.StartLine -eq 2 }
-        # $this.Description = $this.Statement
-
-        If ( $comment ) {
-            Write-Verbose "Node: FinDescription, Comment Found.."
-            If ( $comment[0].Content -match "$($KeyWord):(?<description>\s?[\w\s]+)" ) {
-                Write-Verbose "Node: FinDescription, Comment does Match $KeyWord KeyWord.."
-                $this.Description = $Matches.description.Trim() 
+    ## Method qui permet de trouver tous les noeud par type en recursif
+    [node[]] FindNodeByTypeUp ([System.Type]$TypeToFind){
+        $nodes = @()
+        If ( $this -is $TypeToFind ) {
+            $nodes += $this
+            if ( $this.parent ) {
+                $nodes += $this.parent.FindNodeByTypeUp($TypeToFind)
             }
         } else {
-            Write-Verbose "Node: FinDescription, Comment does not Match Description $KeyWord, Setting Statement as Description.."
-            $this.Description = $this.Statement
+            if ( $this.parent ) {
+                $nodes += $this.parent.FindNodeByTypeUp($TypeToFind)
+            }
         }
-    
-        $this.Children.FindDescription($Recurse, $KeyWord)
-    
+        return $nodes
     }
 
-    ## Method to set a description, recursively or not
-    [void] SetDescription ([Bool]$Recurse) {
+    ## Method qui permet de trouver tous les noeud par type en recursif
+    [node[]] FindNodeByTypeUp ([scriptblock]$Filter){
+        $nodes = @()
 
-        $this.FindDescription()
+        If ( $this.Where($Filter) ) {
+            $nodes += $this
+            if ( $this.parent ) {
+                $nodes += $this.parent.FindNodeByTypeUp($filter)
+            }
+        } else {
+            if ( $this.parent ) {
+                $nodes += $this.parent.FindNodeByTypeUp($filter)
+            }
+        }
+        return $nodes
+    }
 
-        If ( $null -eq $this.Description ) {
-            $d = Read-Host -Prompt $("Set description for {0}" -f $this.Statement)
-        }
-        Else {
-            $d = Read-Host -Prompt $("Actual description for {0} is {1}" -f $this.Statement, $this.Description)
-        }
+    ## Method qui cherche un noeud par son id
+    ## utiliser surtout pour du debug
+    [node[]] FindChildbyId ([string]$Id) {
+        $node = @()
 
-        if ( $null -ne $d ) {
-            $this.Description = $d
+        If ( $this.Children.count -gt 0 ) {
+            foreach ( $child in $this.Children ) {
+                If ( $child.Id -eq $Id ) {
+                    $node += $child
+                }
+                Else {
+                    $node += $child.FindChildbyId($id)
+                }
+            }
         }
-        else {
-            If ( $this.Description -eq $this.Statement ) {
-                $this.Description = $this.Statement
+        return $node
+    }
+
+    ## Methode qui retourne le end node en fonction du type
+    [string] GetEndId () {
+        $string = $null
+        Switch ( $this ) {
+            ([TryNode]) {
+                $FinallyBlock = $this.Children.Where({$_ -is [FinallyNode]})
+                If ( $FinallyBlock ) {
+                    $string = $FinallyBlock.Id
+                } Else {
+                    $string = "end_" + $this.Id
+                }
+                Break;
+            }
+            ([CatchNode]) { $string = $this.Parent.GetEndId() ; break }
+            ([FinallyNode]) { $string = "end_" + $this.Id ; break }
+            ([IfNode]) { $string = "end_" + $this.Id ; break }
+            ([ElseIfNode]) { $string = $this.Parent.GetEndId() ; break }
+            ([ElseNode]) { $string = $this.Parent.GetEndId() ; break}
+            ([ForeachNode]) { $string = "end_" + $this.Id ; break  }
+            ([ForNode]) { $string = "end_" + $this.Id ; break  }
+            ([DoWhileNode]) { $string = "end_" + $this.Id ; break  }
+            ([DoUntilNode]) { $string = "end_" + $this.Id ; break  }
+            ([WhileNode]) { $string = "end_" + $this.Id ; break  }
+            ([SwitchNode]) { $string = "end_" + $this.Id ; break  }
+            ([SwitchCaseNode]) { $string = $this.Parent.GetEndId() ; break  }
+            ([SwitchDefaultNode]) { $string = $this.Parent.GetEndId() ; break  }
+            ([ProcessBlock]) { $string = $this.id ; break  }
+        }
+        return $string
+    }
+
+    ## Method utilise poure tourner l id vers le nextnode
+    ## utilier pour le breakkeyword
+    [string] GetNextNodeId () {
+        $NextNode = $this.link.Find($this).Next.Value
+        
+        If ( $this.depth -eq 0 ) {
+            If ( $null -eq $NextNode ) {
+                return "'End Of Script'"
             } else {
-                $this.Description = $this.Statement
+                return $NextNode.id
+            }
+        } else {
+            If ( $null -eq $NextNode ) {
+                return $this.parent.GetNextNodeId()
+            } else {
+                return $NextNode.id
             }
         }
-
-        If ( $Recurse ) {
-            If ( $this.Children ) {
-                $this.Children.SetDescription($True)
-            }
-        }
-    
+        return $null
     }
 
-    [node[]] GetChildren ([bool]$recurse) {
-        $a = @()
-        If ( $recurse ) {
-            If ( $this.Children.count -gt 0 ) {
-                foreach ( $child in $this.Children ) {
-                    $a += $child.getchildren($true)
+    ## Methode pour dessiner juste le noeud
+    ## en fonction de son type on a quelques caractéristiques
+    ## exemple: une boucle, il faut crééer la fin de la boucle + le edge qui represente l iteration
+    [string] GraphNode([GraphMode]$Mode){
+        Write-Verbose "$($this.Gettype().Name) --> GraphNode(), Id --> $($this.id)"
+        $string = $null
+
+        ## On cherche le noeud courant, dans la linkedlist
+        $NodeInList = $this.link.find($this)
+
+        ## si on est a la depth 0 et qu'on a pas de noeud avant, on trace un edge depuis le debut vers ce noeud
+        ## sauf, si on est en presence d un try
+        If ( ($this.Depth -eq 0) -and ($null -eq $NodeInList.Previous) -and ($this -isnot [TryNode]) ) {
+            $string = $string + "edge -from 'Start Of Script' -to '" + $this.id + "';"
+        }
+
+        ## en fonction du type de noeud on fait des choses differentes
+        If ( $Mode -eq "Debug" ) {
+            Write-Verbose "$($this.Gettype().Name) --> GraphNode() --> Debug Mode, Id --> $($this.id)"
+            switch ( $this ) {
+
+                { $PSItem.Gettype() -in [SwitchNode],[SwitchCaseNode],[SwitchDefaultNode],[TryNode],[CatchNode],[FinallyNode],[IfNode],[ElseIfNode],[ForeachNode],[ForNode],[WhileNode],[ProcessBlock],[BreakKeyWord],[ContinuekeyWord] } {
+                    ##commun a tous ces type de noeuds
+                    $string = $string + "node '" + $this.id + "' -attributes @{Label='" + $this.GetType().Name + " " + $this.Id + "'};"
+                    
+                    Switch ($this){
+                        ([SwitchNode]) {
+                            ## on créé un endnode id
+                            $string = $string + "node '" + $this.GetEndId() + "' -attributes @{Label='End Switch " + $this.Id + "'};"
+                            return $string
+                        }
+                        ([TryNode]) {
+                            $string = $string + "node '" + $this.GetEndId() + "' -attributes @{Label='End Try " + $this.Id + "'};"
+                            return $string
+                        }
+                        ([IfNode]) {
+                            ## on créé un endnode id
+                            $string = $string + "node '" + $this.GetEndId() + "' -attributes @{Label='End If " + $this.Id + "'};"
+                            return $string
+                        }
+                        ## Commun a ces types de loop
+                        { $PSItem.Gettype() -in [ForeachNode],[ForNode],[WhileNode] } {
+                            $string = $string + "node '" + $this.GetEndId() + "' -attributes @{Label='Loop To " + $this.Id + "'};"
+                        }
+
+                        ([ForeachNode]) {
+                            ## on créé la boucle d iteration
+                            $String = $string + "edge -from " + $this.GetEndId() + " -to " + $this.id + " -attributes @{Label='Next'};"
+                            return $string
+                        }
+                        ([ForNode]) {
+                            ## on créé la boucle d iteration
+                            $String = $string + "edge -from " + $this.GetEndId() + " -to " + $this.id + " -attributes @{Label='Next'};"
+                            return $string
+                        }
+                        ([WhileNode]) {
+                            ## on créé la boucle d iteration
+                            $String = $string + "edge -from " + $this.GetEndId() + " -to " + $this.id + " -attributes @{Label='Next'};"
+                            return $string
+                        }
+
+                    }
+                    
                 }
-                $a += $this.Children
-            }
-            else {
-                break;
-            }
-        }
-        else {
-            $a = $this.Children
-        }
+
+                { $PSItem.Gettype() -in [DoWhileNode],[DoUntilNode] } {
+                    ## Commun a ces types de noeuds
+                    $string = $string + "node '" + $this.id + "' -attributes @{Label='Do'};"
+
+                    Switch ($this) {
+                        ([DoWhileNode]) {
+                            ## on créé la boucle d iteration
+                            $string = $string + "node '" + $this.GetEndId() + "' -attributes @{Label='While " + $this.Id + "'};"
+                            $String = $string + "edge -from " + $this.GetEndId() + " -to " + $this.id + " -attributes @{Label='While Statement'};"
+                            return $string
+                        }
             
-        return $a
-    }
-
-    ## Need override in case of switchnodecase, elseif, and else
-    [void] SetDepth () {
-        If ( $null -eq $this.parent ) {
-            $this.Depth = 1
-        }
-        Else {
-            $this.Depth = $this.Parent.Depth + 1
-        }
-
-    }
-
-    hidden [void] Guid () {
-        $this.Nodeid = ([guid]::NewGuid()).Guid
-    }
-
-}
-
-Class IfNode : node {
-
-    [string]$Type = "If"
-
-    IfNode ([Ast]$e) : base ($e) {
-        Write-Verbose "If : Constructor : 1"
-
-        $LinkedList = [System.Collections.Generic.LinkedList[string]]::new()
-
-        $this.FindChildren($this.raw.Clauses[0].Item2.Statements, $this, $LinkedList)
-
-        If ( $e.Clauses.Count -ge 1 ) {
-            for ( $i = 0; $i -lt $e.Clauses.Count ; $i++ ) {
-                if ( $i -eq 0 ) {
-                    $this.Statement = "If ( {0} )" -f $e.Clauses[$i].Item1.Extent.Text
-                    $this.Code = $e.Clauses[$i].Item2.Extent.Text
+                        ([DoUntilNode]) {
+                            ## on créé la boucle d iteration
+                            $string = $string + "node '" + $this.GetEndId() + "' -attributes @{Label='Until " + $this.Id + "'};"
+                            $String = $string + "edge -from " + $this.GetEndId() + " -to " + $this.id + " -attributes @{Label='Until Statement'};"
+                            return $string
+                        }
+                    }
                 }
-                else {
-                    Write-Verbose "If: Constructeur1: Ajout d un ElseIf ..."
-                    $node = [ElseIfNode]::new($e.clauses[$i].Item1, $this, $this.Statement)
-                    $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
-                    $LinkedList.AddLast($LinkedNode)
-                    $node.LinkedBrothers = $LinkedList
-                    $node.LinkedNodeId = $LinkedNode
-                    $this.Children.add($node)
+
+            }
+        }
+
+        If ( $Mode -eq "Standard" ) {
+            Write-Verbose "$($this.Gettype().Name) --> GraphNode() --> Standard Mode, Id --> $($this.id)"
+            switch ( $this ) {
+
+                { $PSItem.Gettype() -in [SwitchNode],[SwitchCaseNode],[SwitchDefaultNode],[FinallyNode],[IfNode],[ElseIfNode],[ForeachNode],[ForNode],[WhileNode],[ProcessBlock],[BreakKeyWord],[ContinuekeyWord] } {
+                    ##commun a tous ces type de noeuds
+                    $string = $string + "node '" + $this.id + "' -attributes @{Label='" + $this.FormatStatement()+ "'};"
+                    
+                    Switch ($this){
+                        ([SwitchNode]) {
+                            ## on créé un endnode id
+                            $string = $string + "node '" + $this.GetEndId() + "' -attributes @{Shape='point'};"
+                            return $string
+                        }
+                        
+                        ([IfNode]) {
+                            ## on créé un endnode id
+                            $string = $string + "node '" + $this.GetEndId() + "' -attributes @{Shape='point'};"
+                            return $string
+                        }
+                        ## Commun a ces types de loop
+                        { $PSItem.Gettype() -in [ForeachNode],[ForNode],[WhileNode] } {
+                            $string = $string + "node '" + $this.GetEndId() + "' -attributes @{Label='Loop'};"
+                        }
+
+                        ([ForeachNode]) {
+                            ## on créé la boucle d iteration
+                            $String = $string + "edge -from " + $this.GetEndId() + " -to " + $this.id + " -attributes @{Label='Next'};"
+                            return $string
+                        }
+                        ([ForNode]) {
+                            ## on créé la boucle d iteration
+                            $String = $string + "edge -from " + $this.GetEndId() + " -to " + $this.id + " -attributes @{Label='Next'};"
+                            return $string
+                        }
+                        ([WhileNode]) {
+                            ## on créé la boucle d iteration
+                            $String = $string + "edge -from " + $this.GetEndId() + " -to " + $this.id + " -attributes @{Label='Next'};"
+                            return $string
+                        }
+
+                    }
+                    
                 }
-            }
-        }
 
-        If ( $null -ne $e.ElseClause ) {
-            Write-Verbose "If: Constructeur1: Ajout d un Else ..."
-            $node = [ElseNode]::new($e.ElseClause, $this, $this.Statement)
-            $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
-            $LinkedList.AddLast($LinkedNode)
-            $node.LinkedBrothers = $LinkedList
-            $node.LinkedNodeId = $LinkedNode
-            $this.Children.Add($node)
-        }
-    
-    }
-
-    IfNode ([Ast]$e, [node]$f) : base ($e, $f) {
-
-        $LinkedList = [System.Collections.Generic.LinkedList[string]]::new()
-
-        $this.FindChildren($this.raw.Clauses[0].Item2.Statements, $this, $LinkedList)
-
-        If ( $e.Clauses.Count -ge 1 ) {
-            for ( $i = 0; $i -lt $e.Clauses.Count ; $i++ ) {
-                if ( $i -eq 0 ) {
-                    $this.Statement = "If ( {0} )" -f $e.Clauses[$i].Item1.Extent.Text
-                    $this.Code = $e.Clauses[$i].Item2.Extent.Text
+                { $PSItem.Gettype() -in [TryNode] } {
+                    $string = $string + "node '" + $this.id + "' -attributes @{Shape='point'};"
+                    $string = $string + "node '" + $this.GetEndId() + "' -attributes @{Shape='point'};"
+                    return $string
                 }
-                else {
-                    Write-Verbose "If: Constructeur2: Ajout d un ElseIf ..."
-                    $node = [ElseIfNode]::new($e.clauses[$i].Item1, $this, $this.Statement)
-                    $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
-                    $LinkedList.AddLast($LinkedNode)
-                    $node.LinkedBrothers = $LinkedList
-                    $node.LinkedNodeId = $LinkedNode
-                    $this.Children.add($node)
+
+                { $PSItem.Gettype() -in [CatchNode] } {
+                    $string = $string + "node '" + $this.id + "' -attributes @{Label='"+$this.Statement+"'};"
+                    return $string
                 }
+
+                { $PSItem.Gettype() -in [DoWhileNode],[DoUntilNode] } {
+                    ## Commun a ces types de noeuds
+                    $string = $string + "node '" + $this.id + "' -attributes @{Label='Do'};"
+
+                    Switch ($this) {
+                        ([DoWhileNode]) {
+                            ## on créé la boucle d iteration
+                            $string = $string + "node '" + $this.GetEndId() + "' -attributes @{Label='" + $this.FormatStatement() + "'};"
+                            $String = $string + "edge -from " + $this.GetEndId() + " -to " + $this.id + " -attributes @{Label='While'};"
+                            return $string
+                        }
+            
+                        ([DoUntilNode]) {
+                            ## on créé la boucle d iteration
+                            $string = $string + "node '" + $this.GetEndId() + "' -attributes @{Label='Until " + $this.FormatStatement() + "'};"
+                            $String = $string + "edge -from " + $this.GetEndId() + " -to " + $this.id + " -attributes @{Label='Until'};"
+                            return $string
+                        }
+                    }
+                }
+
             }
-        }
-
-        If ( $null -ne $e.ElseClause ) {
-            Write-Verbose "If: Constructeur2: Ajout d un Else ..."
-            $node = [ElseNode]::new($e.ElseClause, $this, $this.Statement)
-            $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
-            $LinkedList.AddLast($LinkedNode)
-            $node.LinkedBrothers = $LinkedList
-            $node.LinkedNodeId = $LinkedNode
-            $this.Children.Add($node)
-        }
-    
-
-    }
-
-    [string] graph ($UseDescription) {
-
-        ## On stocke le noeud de fin
-        $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
-        $string=""
-
-        ## Creation des noeuds de base
-        ## si on a pas de previous node, et niveau 1
-        If ( ($this.Depth -eq 1) -And ($null -eq $this.LinkedNodeId.Previous) ) {
-            write-Verbose "Graph: If: Drawing START NODE"
-            $string = ";Edge -from START -to " + $this.NodeId        
-        }
-
-        write-verbose "GRAPH: IF: DRAWING IF NODE"
-        # $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""|\*", '') + "';shape='"+$this.DefaultShape+"'}"
-        ## on cree les bases
-        If ( $UseDescription ) {
-            $string = $string+";node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
-        } Else {
-            $string = $string+";node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""|\*", '') + "';shape='"+$this.DefaultShape+"'}"
-        }
-        write-verbose "GRAPH: IF: DRAWING ENDIF NODE"
-        $string = $string + ";node " + $this.EndNodeid + " -attributes @{shape='point'}"
-
-        ## si on a pas de next node, et niveau 1
-        If ( ($this.Depth -eq 1) -And ($null -eq $EndIfNode.Next) ) {
-            write-Verbose "Graph: If: Drawing END NODE"
-            $string = $string + ";Edge -from " + $this.EndNodeid + " -to END"
-        }
-
-        If ( $this.Children.count -gt 0 ) {
-            $string = $string + ";Edge -from " + $this.NodeId + " -to " + $This.Children[0].NodeId + " -attributes @{Label='True'}"
-            $LastEdgeTrue = $this.Children.Where{ ($_.type -notin ('ElseIf', 'Else')) } | Select-Object -last 1
-
-            If ( $LastEdgeTrue.Type -in ("Foreach", "For", "While", "DoWhile", "DoUntil") ) {
-                ## c'est ici le probleme ...
-                # $string = $string + ";Edge -from " + $LastEdgeTrue.LinkedBrothers.Last.Value + " -to " + $this.EndNodeid + " -attributes @{label='LoopEnded'}"
-                $string = $string + ";Edge -from " + $LastEdgeTrue.EndNodeId + " -to " + $this.EndNodeid + " -attributes @{label='LoopEnded'}"
-            }
-            Else {
-                $string = $string + ";Edge -from " + $LastEdgeTrue.Endnodeid + " -to " + $this.EndNodeid
-            }
-
-            # $string = $string +";Edge -from "+$LastEdgeTrue.EndnodeId+" -to "+$this.EndNodeid
-
-            ## si on au au moins un else ou un elseif, on trace le premier edgefalse
-            If ( ($this.Children.type -contains "Elseif") -or ($this.Children.type -contains "Else") ) {
-                $FirstFalseEdge = $this.Children.Where{ ($_.type -in ('ElseIf', 'Else')) } | Select-Object -first 1
-                $string = $string + ";Edge -from " + $this.NodeId + " -to " + $FirstFalseEdge.nodeId + " -attributes @{Label='False'}"
-            }
-            else {
-                $string = $string + ";Edge -from " + $this.NodeId + " -to " + $this.EndnodeId + " -attributes @{Label='False'}"
-            }
-
-            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph($UseDescription) }
-
-        }
-
-        If ( $null -ne $EndIfNode.Next ) {
-            Write-Verbose "Graph: If: there is a node after the EndIf"
-            $string = $string + ";Edge -from " + $this.EndnodeId + " -to " + $EndIfNode.Next.Value
-        }
-
-        return $string
-    }
-
-}
-
-Class ElseIfNode : node {
-    [String]$Type = "ElseIf"
-
-
-    ElseIfNode ([Ast]$e, [node]$j, [string]$d) : base ($e, $j) {
-        $this.Statement = "ElseIf ( {0} ) From {1}" -f $e.Extent.Text, $d
-        $item1ToSearch = $this.raw.extent.text
-        $this.Code = ($this.raw.Parent.Clauses.where( { $_.Item1.extent.text -eq $item1ToSearch })).Item2.Extent.Text
-
-        $this.FindChildren($this.raw.Parent.Clauses.where( { $_.item1.extent.text -eq $this.raw.extent.text }).item2.Statements, $this)
-    }
-
-    [string] graph ($UseDescription) {
-
-        # $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""|\*", '') + "';shape='"+$this.DefaultShape+"'}"
-        If ( $UseDescription ) {
-            $string = "node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
-        } Else {
-            $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""|\*", '') + "';shape='"+$this.DefaultShape+"'}"
-        }
-
-        If ( $null -ne $This.LinkedNodeId.Next ) {
-            $string = $string + ";Edge -from " + $this.NodeId + " -to " + $This.LinkedNodeId.Next.Value + " -attributes @{Label='False'}"
-        }
-        Else {
-            $string = $string + ";Edge -from " + $this.NodeId + " -to " + $This.Parent.EndNodeid + " -attributes @{Label='False'}"
-        }
-
-        If ( $this.Children.count -gt 0 ) {
-            $string = $string + ";Edge -from " + $this.NodeId + " -to " + $This.Children[0].NodeId + " -attributes @{Label='True'}"
-            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph($UseDescription) }
-            $string = $string + ";Edge -from " + $this.Children[-1].EndnodeId + " -to " + $this.Parent.EndNodeid
-        }
-
-        return $string
-    }
-
-}
-
-Class ElseNode : node {
-    [String]$Type = "Else"
-
-    ElseNode ([Ast]$e, [string]$d)  : base ($e) {
-        $this.Statement = "Else From {0}" -f $d
-        $this.code = $e.extent.Text
-        $this.FindChildren($this.raw.statements, $this)
-    }
-
-    ElseNode ([Ast]$e, [node]$f, [string]$d)  : base ($e, $f) {
-        $this.Statement = "Else From {0}" -f $d
-        $this.code = $e.extent.Text
-        $this.FindChildren($this.raw.statements, $this)
-    }
-
-    [string] graph ($UseDescription) {
-
-        # $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""|\*", '') + "';shape='"+$this.DefaultShape+"'}"
-        If ( $UseDescription ) {
-            $string = "node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
-        } Else {
-            $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""|\*", '') + "';shape='"+$this.DefaultShape+"'}"
-        }
-
-        If ( $this.Children.count -gt 0 ) {
-            $string = $string + ";Edge -from " + $this.NodeId + " -to " + $This.Children[0].NodeId
-            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph($UseDescription) }
-            $string = $string + ";Edge -from " + $this.Children[-1].EndnodeId + " -to " + $this.Parent.EndNodeid
-        }
-
-        return $string
-    }
-}
-
-Class SwitchNode : node {
-    [String]$Type = "Switch"
-
-    SwitchNode ([Ast]$e) : base ($e) {
-        $this.Statement = "Switch ( " + $e.Condition.extent.Text + " )"
-
-        $LinkedList = [System.Collections.Generic.LinkedList[string]]::new()
-
-        ## Case nodes
-        for ( $i = 0; $i -lt $e.Clauses.Count ; $i++ ) {
-        
-            $node = [SwitchCaseNode]::new($e.clauses[$i].Item1, $this, $this.Statement, $e.clauses[$i].Item2)
-            $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
-            $LinkedList.AddLast($LinkedNode)
-            $node.LinkedNodeId = $LinkedNode
-            $node.LinkedBrothers = $LinkedList
-            $this.Children.Add($node)
-        }
-
-        ## Default Node
-        $node = [SwitchDefaultNode]::new($e.default, $this, $this.Statement, $e.default.statements)
-        $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
-        $LinkedList.AddLast($LinkedNode)
-        $node.LinkedNodeId = $LinkedNode
-        $node.LinkedBrothers = $LinkedList
-        $this.Children.Add($node)
-    }
-
-    SwitchNode ([Ast]$e, [node]$f) : base ($e, $f) {
-        $this.Statement = "Switch ( " + $e.Condition.extent.Text + " )"
-
-        $LinkedList = [System.Collections.Generic.LinkedList[string]]::new()
-
-        ## Case nodes
-        for ( $i = 0; $i -lt $e.Clauses.Count ; $i++ ) {
-        
-            $node = [SwitchCaseNode]::new($e.clauses[$i].Item1, $this, $this.Statement, $e.clauses[$i].Item2)
-            $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
-            $LinkedList.AddLast($LinkedNode)
-            $node.LinkedNodeId = $LinkedNode
-            $node.LinkedBrothers = $LinkedList
-            $this.Children.Add($node)
-        }
-
-        ## Default Node
-        $node = [SwitchDefaultNode]::new($e.default, $this, $this.Statement, $e.default.statements)
-        $LinkedNode = [System.Collections.Generic.LinkedListNode[string]]::new($node.Nodeid)
-        $LinkedList.AddLast($LinkedNode)
-        $node.LinkedNodeId = $LinkedNode
-        $node.LinkedBrothers = $LinkedList
-        $this.Children.Add($node)
-    
-
-    }
-
-    ## pas réussi a chopper le "code" du switch .. du coup la description ne sra pas settable dans le script
-    ## la description ne sera utilisable que pour le graph
-    [void]SetDescription([string]$e) {
-        $this.Description = $e
-    }
-
-    [string] graph ($UseDescription) {
-        ## On stocke le noeud de fin
-        $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
-
-        $string = ""
-
-        ## si on a pas de previous node, et niveau 1
-        If ( ($this.Depth -eq 1) -And ($null -eq $this.LinkedNodeId.Previous) ) {
-            write-Verbose "Graph: Switch: Drawing START NODE"
-            $string = ";Edge -from START -to " + $this.NodeId        
-        }
-
-        ## Creation des noeuds de base
-        # $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""|\*", '') + "';shape='"+$this.DefaultShape+"'}"
-        If ( $UseDescription ) {
-            $string = $string + ";node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
-        } Else {
-            $string = $string + ";node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""|\*", '') + "';shape='"+$this.DefaultShape+"'}"
         }
         
-        $string = $string + ";node " + $this.EndNodeid + " -attributes @{shape='point'}"
-
-        ## si on a pas de next node, et niveau 1
-        If ( ($this.Depth -eq 1) -And ($null -eq $EndIfNode.Next) ) {
-            write-Verbose "Graph: Switch: Drawing END NODE"
-            $string = $string + ";Edge -from " + $this.EndNodeid + " -to END"
-        }
-
-        For ( $i = 0; $i -lt $this.Children.Count; $i++) {
-            If ( $i -eq 0 ) {
-                $string = $string + ";edge -from " + $this.nodeId + " -to " + $this.Children[$i].NodeId + " @{label='Testing "+$this.raw.Condition.Extent.Text+"'}"
-                $string = $string + ";" + $this.Children[$i].graph($UseDescription)
-            }
-            else {
-                $string = $string + ";edge -from " + $this.Children[$i - 1].NodeId + " -to " + $this.Children[$i].NodeId + " -attributes @{label='False'}"
-                $string = $string + ";" + $this.Children[$i].graph($UseDescription)
-                #$string = $string + ";edge -from "+$this.Children[$i].NodeId+" -to "+$this.Children[$i].EndNodeId
-            }
-        }
-
-        If ( $EndIfNode.Next ) {
-            $string = $string + ";edge -from " + $EndIfNode.Value + " -to " + $EndIfNode.Next.Value
-        }
         return $string
     }
 
-    ## On cherche pas de description
-    [void]FindDescription() {
-        $this.Description = $this.Statement
-    }
-    [void]FindDescription([Bool]$Recurse) {
-        $this.Description = $this.Statement
-        $this.Children.FindDescription($Recurse)
-    }
-    [void]FindDescription([Bool]$Recurse, [String]$KeyWord) {
-        $this.Description = $this.Statement
-        $this.Children.FindDescription($Recurse)
-    }
-}
-
-Class SwitchDefaultNode : node {
-    [String]$Type = "SwitchDefault"
-
-    SwitchDefaultNode ([Ast]$e, [node]$j, [string]$d, [Ast[]]$f) : base ($e, $j) {
-        Write-Verbose ("Default Switch, statements count:" + $f.count)
-        $this.Statement = "Default for {0}" -f $d
-        $this.Code = $this.raw.extent.Text
-        $this.FindChildren($f, $this)
-    }
-
-    [String] graph ($UseDescription) {
-        ## Creation des noeuds de base
-        # $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""|\*", '') + "';shape='"+$this.DefaultShape+"'}"
-        If ( $UseDescription ) {
-            $string = "node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
-        } Else {
-            $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""|\*", '') + "';shape='"+$this.DefaultShape+"'}"
+    [string] GraphNode ([bool]$x,[GraphMode]$Mode) {
+        Write-Verbose "$($this.Gettype().Name) --> GraphNode()"
+        $string = $null
+        If ( $Mode -eq "Debug") {
+            $string = "node '" + $this.Id + "' -attributes @{Label='"+ $this.GetType().Name + " " + $this.Id +"'};"
+        } else {
+            $string = "node '" + $this.Id + "' -attributes @{Label='"+$this.GetType().Name+"'};"
         }
        
-        $string = $string + ";node " + $this.EndNodeid + " -attributes @{shape='point'}"
-        $string = $string + ";Edge -from " + $this.EndNodeId + " -to " + $this.Parent.EndNodeid
-
-        If ( $this.Children.count -gt 0 ) {
-            $string = $string + ";Edge -from " + $this.NodeId + " -to " + $This.Children[0].NodeId
-            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.graph($UseDescription) }
-            $string = $string + ";Edge -from " + $this.Children[-1].EndNodeId + " -to " + $this.EndNodeid
-        }
-
-
-
         return $string
     }
 
-}
+    ## Pour tracer un edge vers le noeud suivant
+    ## Sauf si on a une profondeur superieur a 0,
+    ## alors il faut voir quel est le parent
+    ## En revanche, si on est a une profondeur > 0,
+    ## il faudra, si c'est le dernier parmis les enfants,
+    ## s occuper de tracer le edge vers le parent
+    [string] GraphToNextNode(){
+        Write-Verbose "$($this.GetType().Name) --> GraphToNextNode(), Depth --> $($this.Depth), Id --> $($this.id)"
+        $string = $null
 
-Class SwitchCaseNode : node {
-    [String]$Type = "SwitchCase"
+        ## On cherche le noeud courant, dans la linkedlist
+        $NodeInList = $this.link.find($this)
 
-    SwitchCaseNode ([Ast]$e, [node]$j, [string]$d, [Ast]$f) : base ($e, $j) {
-        $this.Statement = "Case: {1} for Switch {0}" -f $d, $this.raw.Extent.Text
-
-        $item1ToSearch = $this.raw.Value
-        $this.Code = ($this.raw.Parent.Clauses.where( { $_.Item1.Value -eq $item1ToSearch })).Item2.Extent.Text
-
-        $this.FindChildren($f.Statements, $this)
-    }
-
-    [String] graph ($UseDescription) {
-        ## Creation des noeuds de base
-        # $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""|\*", '') + "';shape='"+$this.DefaultShape+"'}"
-        If ( $UseDescription ) {
-            $string = "node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
-        } Else {
-            $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""|\*", '') + "';shape='"+$this.DefaultShape+"'}"
-        }
-        $string = $string + ";node " + $this.EndNodeid + " -attributes @{shape='point'}"
-        $string = $string + ";Edge -from " + $this.EndNodeId + " -to " + $this.Parent.EndNodeid
-
-        If ( $this.Children.count -gt 0 ) {
-            $string = $string + ";Edge -from " + $this.NodeId + " -to " + $This.Children[0].NodeId
-            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.graph($UseDescription) }
-            $string = $string + ";Edge -from " + $this.Children[-1].EndNodeId + " -to " + $this.EndNodeid
-        }
-
-
-
-        return $string
-    }
-
-}
-
-Class ForeachNode : node {
-    [String]$Type = "Foreach"
-
-    ForeachNode ([Ast]$e) : base ($e) {
-        Write-Verbose "FORECH"
-        $this.Statement = "Foreach ( " + $e.Variable.extent.Text + " in " + $e.Condition.extent.Text + " )"
-        $this.code = $e.body.Extent.Text
-        $this.FindChildren($this.raw.Body.Statements, $this)
-    }
-
-    ForeachNode ([Ast]$e, [node]$f) : base ($e, $f) {
-        $this.Statement = "Foreach ( " + $e.Variable.extent.Text + " in " + $e.Condition.extent.Text + " )"
-        $this.code = $e.body.extent.Text
-        $this.FindChildren($this.raw.Body.Statements, $this)
-    }
-
-    [string] graph ($UseDescription) {
-
-        ## On stocke le noeud de fin
-        $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
-
-        $string = ''
-        ## si on a pas de previous node, et niveau 1
-        If ( ($this.Depth -eq 1) -And ($null -eq $this.LinkedNodeId.Previous) ) {
-            write-Verbose "Graph: Foreach: Drawing START NODE"
-            $string = ";Edge -from START -to " + $this.NodeId        
-        }
-
-        ## Noeud et edge de base
-        # $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""|\*", '') + "';shape='"+$this.DefaultShape+"'}"
-        If ( $UseDescription ) {
-            $string = $string+";node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
-        } Else {
-            $string = $string+";node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""|\*", '') + "';shape='"+$this.DefaultShape+"'}"
-        }
-        $string = $string + ";node " + $this.EndNodeid + " -attributes @{Label='Next " + $this.raw.Condition + "'}"
-        $string = $string + ";Edge -from " + $this.EndNodeid + " -to " + $this.nodeId + " -attributes @{Label='Loop'}"
-
-        ## si on a pas de next node, et niveau 1
-        If ( ($this.Depth -eq 1) -And ($null -eq $EndIfNode.Next) ) {
-            write-Verbose "Graph: Foreach: Drawing END NODE"
-            $string = $string+";Edge -from " + $this.EndNodeid + " -to END -attributes @{Label='LoopEnded'}"
-        }
-
-
-        If ( $this.Children.count -gt 0 ) {
-            $string = $string + ";Edge -from " + $this.NodeId + " -to " + $this.Children[0].NodeId
-            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.Graph($UseDescription) }
-
-            ## Si le dernier noeud est de type LOOP
-            If ( $this.Children[-1].Type -in ("Foreach", "For", "While", "DoWhile", "DoUntil") ) {
-                $string = $string + ";Edge -from " + $this.Children[-1].LinkedBrothers.Last.Value + " -to " + $this.EndNodeid + " -attributes @{label='LoopEnded'}"
-            }
-            Else {
-                write-Verbose "Graph: Foreach: Drawing EDGE from Child last value to EndNodeId"
-                $string = $string + ";Edge -from " + $this.Children[-1].LinkedBrothers.Last.Value + " -to " + $this.EndNodeid
-            }
-        
-        }
-
-        If ( $null -ne $EndIfNode.Next ) {
-            Write-Verbose "Graph: foreach: there is a node after the EndNodeId"
-            ## Si le noeud suivant est un else/elseif On ne fait rien, le edge doit être dessiner vers ENDIF, et il est fait par la methode Graph du IF
-            $NextNode = $this.parent.Children.where({$_.NodeID -eq $EndIfNode.Next.Value})
-            If ( $NextNode.Type -notlike "Else*" ) {
-                Write-Verbose "Graph: foreach: the next node is not a else/elseif"
-                $string = $string + ";Edge -from " + $this.EndnodeId + " -to " + $EndIfNode.Next.Value + " -attributes @{label='LoopEnded'}"
-            }
+        If ( $this.Depth -eq 0 ) {
             
+            ## en fonciton du type de noeud on fait des choses differentes
+            switch ( $this.GetType() ) {
+                {$PSItem -in [SwitchNode],[IfNode],[ForeachNode],[ForNode],[WhileNode],[DoUntilNode],[DoWhileNode],[ForNode],[ProcessBlock],[DoUntilNode],[DoWhileNode] } { 
+                    # Write-Verbose "$($this.Gettype().Name) --> GraphToNextNode()"
+                    ## Si il n y a pas de noeud suivant
+                    If ( $null -eq $NodeInList.Next ) {
+                        ## on trace vers la fin depuis le endnodeid
+                        $string = $string + "edge -from " + $this.GetEndId() + " -to 'End Of Script';"
+                        
+                    } else {
+                        ## on trace vers le noeud suivant depuis le endnodeid
+                        $string = $string + "edge -from " + $this.GetEndId() + " -to " + $NodeInList.Next.Value.Id + ";"
+                    }
+
+                    break;
+                }
+
+                ([TryNode]) {
+                    # Write-Verbose "$($this.Gettype().Name) --> GraphToNextNode()"
+                    ## Si on a un block Finally, le end_id,
+                    ## doit être celui du finally
+                    $FinallyBlock = $this.Children.Where({$_ -is [FinallyNode]})
+                    If ( $FinallyBlock ) {
+                        $endid = $FinallyBlock.GetEndid()
+                    } Else {
+                        $endid = $this.GetEndId()
+                    }
+
+                    ## Si il n y a pas de noeud suivant
+                    If ( $null -eq $NodeInList.Next ) {
+                        ## on trace vers la fin depuis le endnodeid
+                        $string = $string + "edge -from " + $endid + " -to 'End Of Script';"
+                        
+                    } else {
+                        ## on trace vers le noeud suivant depuis le endnodeid
+                        $string = $string + "edge -from " + $endid + " -to " + $NodeInList.Next.Value.Id + ";"
+                    }
+
+                    break;
+                }
+            }
+        }
+
+
+        If ( $this.Depth -gt 0 ) {
+            
+            ## en fonciton du type de noeud on fait des choses differentes
+            switch ( $this ) {
+                { $PSItem.Gettype() -in [IfNode],[SwitchNode],[ForeachNode],[ForNode],[WhileNode],[DoUntilNode],[DoWhileNode] } {
+                    # Write-Verbose "$($this.Gettype().Name) --> GraphToNextNode()"
+                    ## Si il n y a pas de noeud suivant
+                    If ( $null -eq $NodeInList.Next ) {
+                        ## on trace vers la fin depuis le endnodeid
+                        ## ici le catchnode, va dessiner une boucle du end_try vers le end_try ...
+                        $string = $string + "edge -from " + $this.GetEndId() + " -to " + $this.Parent.GetEndId() + ";"
+                    } ElseIf ($NodeInList.Next.value.Gettype() -notin [ElseNode],[ElseIfNode],[CatchNode])  {
+                        ## on trace vers le noeud suivant depuis le endnodeid
+                        $string = $string + "edge -from " + $this.GetEndId() + " -to " + $NodeInList.Next.Value.Id + ";"
+                    } ElseIf ($NodeInList.Next.value.Gettype() -in [ElseNode],[ElseIfNode],[CatchNode]) {
+                        ## si le noeud suivant est un else, on trace vers le parent
+                        $string = $string + "edge -from " + $this.GetEndid() + " -to " + $NodeInList.Next.Value.GetEndId() + ";"
+                    }
+
+                    break;
+                }
+
+                ( [TryNode] ) {
+                    # Write-Verbose "$($this.Gettype().Name) --> GraphToNextNode()"
+                    ## Si on a un block Finally, le end_id,
+                    ## doit être celui du finally
+                    $FinallyBlock = $this.Children.Where({$_ -is [FinallyNode]})
+                    If ( $FinallyBlock ) {
+                        $endid = $FinallyBlock.GetEndid()
+                    } Else {
+                        $endid = $this.GetEndId()
+                    }
+
+
+                    ## Si il n y a pas de noeud suivant
+                    If ( $null -eq $NodeInList.Next ) {
+                        ## on trace vers la fin depuis le endnodeid
+                        ## ici le catchnode, va dessiner une boucle du end_try vers le end_try ...
+                        $string = $string + "edge -from " + $endid + " -to " + $this.Parent.GetEndId() + ";"
+                    } ElseIf ($NodeInList.Next.value.Gettype() -notin [ElseNode],[ElseIfNode])  {
+                        ## on trace vers le noeud suivant depuis le endnodeid
+                        $string = $string + "edge -from " + $endid + " -to " + $NodeInList.Next.Value.Id + ";"
+                    } ElseIf ($NodeInList.Next.value.Gettype() -in [ElseNode],[ElseIfNode]) {
+                        ## si le noeud suivant est un else, on trace vers le parent
+                        $string = $string + "edge -from " + $endid + " -to " + $NodeInList.Next.Value.GetEndId() + ";"
+                    }
+
+                    break;
+                }
+
+                ( [ProcessBlock] ) {
+                    # Write-Verbose "$($this.Gettype().Name) --> GraphToNextNode()"
+                    ## Si il n y a pas de noeud suivant
+                    If ( $null -eq $NodeInList.Next ) {
+                        ## on trace vers la fin depuis le endnodeid
+                        $string = $string + "edge -from " + $this.id + " -to " + $this.Parent.GetEndId() + ";"
+                        
+                    } ElseIf ($NodeInList.Next.value.Gettype() -notin [ElseNode],[ElseIfNode],[CatchNode]) {
+                        ## on trace vers le noeud suivant depuis le endnodeid
+                        $string = $string + "edge -from " + $this.id + " -to " + $NodeInList.Next.Value.Id + ";"
+                    } ElseIf ($NodeInList.Next.value.Gettype() -in [ElseNode],[ElseIfNode],[CatchNode]) {
+                        ## si le noeud suivant est un else, on trace vers le parent
+                        $string = $string + "edge -from " + $this.id + " -to " + $NodeInList.Next.Value.GetEndId() + ";"
+                    }
+
+                    break;
+                }
+
+
+                ( [ExitKeyWord] ) {
+                    # Write-Verbose "$($this.Gettype().Name) --> GraphToNextNode()"
+                    $string = $string + "edge -from " + $this.id + " -to " + $this.Parent.GetEndId() + " -attributes @{style='dotted'};"
+                    break;
+                }
+
+                ( [BreakKeyWord] ) {
+                    ## si on a un label on cherche les loops avec ce label
+                    if ( $this.Label ) {
+                        $node = $this.FindNodeByTypeUp([loops]).where({$_.Label -eq $this.Label})
+                    } else {
+                        ## on cheche la boucle ou le switch le/la plus proche
+                        $node = $this.FindNodeByTypeUp({($_ -is [loops]) -or ($_ -is [SwitchNode])}) | Select-Object -first 1
+                    }
+
+                    $string = $string + "edge -from " + $this.id + " -to " + $this.Parent.GetEndId() + " -attributes @{style='dotted'};"
+                    $string = $string + "edge -from " + $this.id + " -to " + $node.GetNextNodeId() + " -attributes @{Label='Break From "+$node.id+"'};"
+                }
+
+                ( [ContinuekeyWord] ) {
+                    ## si on a un label on cherche les loops avec ce label
+                    if ( $this.Label ) {
+                        $node = $this.FindNodeByTypeUp([loops]).where({$_.Label -eq $this.Label})
+                    } else {
+                        ## on cheche la bouce la plus proche
+                        $node = $this.FindNodeByTypeUp({($_ -is [loops]) -or ($_ -is [SwitchNode])}) | Select-Object -first 1
+                    }
+
+                    $string = $string + "edge -from " + $this.id + " -to " + $this.Parent.GetEndId() + " -attributes @{style='dotted'};"
+                    $string = $string + "edge -from " + $this.id + " -to " + $node.id + " -attributes @{Label='Continue'};"
+                }
+
+            }
         }
 
         return $string
+        ## FIN GRAPHTONEXTNODE
     }
-}
 
-Class WhileNode : node {
-    [string]$Type = "While"
+    ## Methode qui va dessiner le 1° edge
+    ## vers le premier enfant.
+    [string] GraphToChild([GraphMode]$Mode){
 
-    WhileNode ([Ast]$e) : base ($e) {
-        $this.Statement = "While ( " + $e.Condition.extent.Text + " )"
-        $this.code = $e.body.extent.Text
-        $this.FindChildren($this.raw.Body.Statements, $this)
+        $string = $null
+        Switch ( $this ) {
+
+            { $PSItem.Gettype() -in [SwitchNode] } {
+                ## On graph un edge vers chaque child du Switch
+                Foreach ( $child in $this.Children ) {
+                    # $string = $string + "edge -from " + $this.id + " -to " + $child.id + " -attributes @{Label='Oupsy'};"
+                    $string = $string + "edge -from " + $this.id + " -to " + $child.id + ";"
+                }
+            }
+
+            { $PSItem.GetType() -in [IfNode] } { 
+                ## On graph un edge True et un edge False
+                $TrueNode = $this.Children.Where({$_.Gettype() -notin [ElseNode],[ElseIfNode]}) | Select-Object -First 1
+                $FalseNode = $this.Children.Where({$_ -is [ElseIfNode]}) | Select-Object -First 1
+
+                ## on a pas trouver de elseif, on cherche donc un elsenode
+                If ( -not $FalseNode ) {
+                    $tFalseNode = $this.Children.Where({$_ -is [ElseNode]})
+                    If ( $tFalseNode ) {
+                        $FalseNode = $tFalseNode.Children[0]
+                    }
+                }
+                
+                If ( $TrueNode ) {
+                    $string = $string + "edge -from " + $this.id + " -to " + $TrueNode.id + " -attributes @{Label='True'};"
+                }
+                
+                If ( $FalseNode ) {
+                    $string = $string + "edge -from " + $this.id + " -to " + $FalseNode.id + " -attributes @{Label='False'};"
+                }
+
+                break;
+            }
+
+            ([ElseIfNode]) {
+
+                ## On cherche le noeud courant, dans la linkedlist
+                $NodeInList = $this.link.find($this)
+
+                ## On graph un edge True et un edge False
+                $TrueNode = $this.Children[0]
+                $FalseNode = $NodeInList.Next.Value
+
+                ## on cherche le noeud suivant, si il y en a un, c'est forcement un
+                ## elseif ou un else.
+                ## sinon on trace vers le endif
+                If ( $FalseNode ) {
+                    If ( $FalseNode -is [ElseNode] ) {
+                        ## si le noeud suivant un else, on trace vers le 1° enfant du else
+                        $String = $string + "edge -from " + $this.id + " -to " + $FalseNode.Children[0].Id + " -attributes @{Label='False'};"
+                    } Else {
+                        ## sinon le noeud suivant est un elseif
+                        $String = $string + "edge -from " + $this.id + " -to " + $FalseNode.Id + " -attributes @{Label='False'};"
+                    }
+                    
+                } else {
+                    $String = $string + "edge -from " + $this.id + " -to " + $this.GetEndId() + " -attributes @{Label='False'};"
+                }
+
+                $string = $string + "edge -from " + $this.id + " -to " + $TrueNode.id + " -attributes @{Label='True'};"
+            }
+
+            { $PSItem.GetType() -in [SwitchCaseNode],[SwitchDefaultNode],[ForeachNode],[ForNode],[WhileNode],[Catchnode],[FinallyNode],[DoUntilNode],[DoWhileNode] } {
+                ## du noeud de fin de boucle vers le noeud suivant
+                $string = $string + "edge -from " + $this.id + " -to " + $this.Children[0].id + ";"
+                break;
+            }
+
+            ([TryNode]) {
+                ## on cherche les catchnode
+                ## J'ai juste mis si c'était le catch all ou pas,
+                ## mais on pourrait mettre le type qui est attendu aussi..
+                Foreach ( $catchnode in $this.Children.Where({ $_ -is [CatchNode] }) ) {
+                    $string = $string + "edge -from " + $this.id + " -to " + $CatchNode.id + ";"
+                }
+
+                ## on trace un edge vers le 1° enfant
+                ## qui n est pas de type catchnode
+                $FirstNonCatchNode = $this.Children.Where({ $_.Gettype() -notin [CatchNode],[FinallyNode] }) | Select-Object -First 1
+                $string = $string + "edge -from " + $this.id + " -to " + $FirstNonCatchNode.id + ";"
+            }
+        }
+        
+
+        ## on lance le graph des child, sauf pour le catch,
+        foreach ( $child in $this.Children ) {
+                $string = $string + $child.Graph([GraphMode]$Mode)
+        }
+
+        return $string
+        ## FIN GRAPHTOCHILD
+    }
     
-    }
+    ## Methode globale
+    ## c'est elle qui est appellée si on veut grapher un noeud 
+    [string] Graph ([GraphMode]$Mode) {
+        $string = $null
 
-    WhileNode ([Ast]$e, [node]$f) : base ($e, $f) {
-        $this.Statement = "While ( " + $e.Condition.extent.Text + " )"
-        $this.code = $e.body.extent.Text
-        $this.FindChildren($this.raw.Body.Statements, $this)
-    
-    }
-
-    [string] graph ($UseDescription) {
-
-        ## On stocke le noeud de fin
-        $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
-
-        $string = ''
-        ## si on a pas de previous node, et niveau 0
-        If ( ($this.Depth -eq 1) -And ($null -eq $this.LinkedNodeId.Previous) ) {
-            write-Verbose "Graph: While: Drawing START NODE"
-            $string = ";Edge -from START -to " + $this.NodeId        
+        ## si on a un try en 1°, il faut tracer le edge du start of script d'abord
+        ## sinon le start of script se retrouve dans le subgraph
+        If ( ($this.Depth -eq 0) -and ($this -is [TryNode]) -and ($null -eq $this.link.find($this).Previous) ) {
+            $string = $string + "edge -from 'Start Of Script' -to '" + $this.id + "';"
         }
+
+        ## si c'est un trynode, on cree un subgraph
+        If ( $this -is [TryNode]) {
+            $string = $string + "subgraph -attributes @{label='TRY'} -scriptblock{"
+        }
+
+        $string = $string + $this.GraphNode([GraphMode]$Mode)
+        $string = $string + $this.GraphToChild([GraphMode]$Mode)
+
+        ## si c'est un trynode, on cree la fin du subgraph
+        ## et on cherche le catch, qu'on graph apres le subgraph
+        If ( $this -is [TryNode]) {
+            $string = $string + "};"
+        }
+
+        $string = $string + $this.GraphToNextNode()
         
-        ## on cree les bases
-        If ( $UseDescription ) {
-            $string = $string +";node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
-        } Else {
-            $string = $string +";node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""|\*", '') + "';shape='"+$this.DefaultShape+"'}"
-        }
-        $string = $string + ";node " + $this.EndNodeid + " -attributes @{Label='If " + $this.raw.Condition + "';shape='diamond'}"
-        $string = $string + ";Edge -from " + $this.EndNodeid + " -to " + $this.nodeId + " -attributes @{Label='True, Loop'}"
-
-        ## si on a pas de next node, et niveau 1
-        If ( ($this.Depth -eq 1) -And ($null -eq $EndIfNode.Next) ) {
-            write-Verbose "Graph: While: Drawing END NODE"
-            $string = $string+";Edge -from " + $this.EndNodeid + " -to END -attributes @{Label='LoopEnded'}"
-        }
-
-        ## si on a des enfants
-        If ( $this.Children.count -gt 0 ) {
-            Write-Verbose "Graph: While: Graph while children"
-            $string = $string + ";Edge -from " + $this.NodeId + " -to " + $this.Children[0].NodeId
-            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.graph($UseDescription) }
-
-            ## Si le dernier noeud est de type LOOP
-            If ( $this.Children[-1].Type -in ("Foreach", "For", "While", "DoWhile", "DoUntil") ) {
-                $string = $string + ";Edge -from " + $this.Children[-1].LinkedBrothers.Last.Value + " -to " + $this.EndNodeid + " -attributes @{label='LoopEnded'}"
+        ## on cree les exit node, et on trace les edge vers la fin du script
+        ## on fait ça car sinon, dans le cas du try par exemple, le end of script
+        ## se retrouvera dans le subgraph ...
+        ## on ne fait que sur les noeuds de 1° niveau .. on cherche recursivement de 
+        ## toute façon
+        If ( $this.Depth -eq 0 ) {
+            foreach ($node in $this.FindNodeByType([ExitKeyWord])) {
+                $string = $string + $node.GraphNode($true,[GraphMode]$Mode)
+                $string = $string + "edge -from " + $node.id + " -to 'End Of Script';"
             }
-            Else {
-                $string = $string + ";Edge -from " + $this.Children[-1].LinkedBrothers.Last.Value + " -to " + $this.EndNodeid
-            }
-        }
-        
-        If ( $null -ne $EndIfNode.Next ) {
-            Write-Verbose "Graph: foreach: there is a node after the EndNodeId"
-            ## Si le noeud suivant est un else/elseif On ne fait rien, le edge doit être dessiner vers ENDIF, et il est fait par la methode Graph du IF
-            $NextNode = $this.parent.Children.where({$_.NodeID -eq $EndIfNode.Next.Value})
-            If ( $NextNode.Type -notlike "Else*" ) {
-                Write-Verbose "Graph: foreach: the next node is not a else/elseif"
-                $string = $string + ";Edge -from " + $this.EndnodeId + " -to " + $EndIfNode.Next.Value + " -attributes @{label='LoopEnded'}"
-            }
-            
         }
 
         return $string
     }
+
+    [String] FormatStatement () {
+        return (($this.Statement -replace "'|""|\*", '') -replace '\\',"\\")
+    }
+
 }
 
-Class ForNode : node {
-    [string]$Type = "For"
-
-    ForNode ([Ast]$e) : base ($e) {
-        $this.Statement = "For ( " + $e.Condition.extent.Text + " )"
-        $this.code = $e.body.extent.Text
-        $this.FindChildren($this.raw.Body.Statements, $this)
-    }
-
-    ForNode ([Ast]$e, [node]$f) : base($e, $f) {
-        $this.Statement = "For ( " + $e.Condition.extent.Text + " )"
-        $this.code = $e.body.extent.Text
-        $this.FindChildren($this.raw.Body.Statements, $this)
-    }
-
-    [string] graph ($UseDescription) {
-
-        ## On stocke le noeud de fin
-        $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
-
-        $string = ''
-        ## si on a pas de previous node, et niveau 0
-        If ( ($this.Depth -eq 1) -And ($null -eq $this.LinkedNodeId.Previous) ) {
-            write-Verbose "Graph: For: Drawing START NODE"
-            $string = ";Edge -from START -to " + $this.NodeId        
-        }
-
-        ## on cree les bases
-        If ( $UseDescription ) {
-            $string = $string+";node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
-        } Else {
-            $string = $string+";node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""|\*", '') + "';shape='"+$this.DefaultShape+"'}"
-        }
-        $string = $string + ";node " + $this.EndNodeid + " -attributes @{Label='If " + $this.raw.Condition + "';shape='diamond'}"
-        $string = $string + ";Edge -from " + $this.EndNodeid + " -to " + $this.nodeId + " -attributes @{Label='" + $this.raw.Iterator.Extent.Text + "'}"
-
-        ## si on a pas de next node, et niveau 1
-        If ( ($this.Depth -eq 1) -And ($null -eq $EndIfNode.Next) ) {
-            write-Verbose "Graph: For: Drawing END NODE"
-            $string = $string+";Edge -from " + $this.EndNodeid + " -to END -attributes @{Label='LoopEnded'}"
-        }
-
-        ## Si il y a des enfants
-        If ( $this.Children.count -gt 0 ) {
-            Write-Verbose "Graph: For: Graph while children"
-            $string = $string + ";Edge -from " + $this.NodeId + " -to " + $this.Children[0].NodeId
-            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.graph($UseDescription) }
-
-            ## Si le dernier noeud est de type LOOP
-            If ( $this.Children[-1].Type -in ("Foreach", "For", "While", "DoWhile", "DoUntil") ) {
-                $string = $string + ";Edge -from " + $this.Children[-1].LinkedBrothers.Last.Value + " -to " + $this.EndNodeid + " -attributes @{label='LoopEnded'}"
-            }
-            Else {
-                $string = $string + ";Edge -from " + $this.Children[-1].LinkedBrothers.Last.Value + " -to " + $this.EndNodeid
-            }
-        }
-
-        If ( $null -ne $EndIfNode.Next ) {
-            Write-Verbose "Graph: foreach: there is a node after the EndNodeId"
-            ## Si le noeud suivant est un else/elseif On ne fait rien, le edge doit être dessiner vers ENDIF, et il est fait par la methode Graph du IF
-            $NextNode = $this.parent.Children.where({$_.NodeID -eq $EndIfNode.Next.Value})
-            If ( $NextNode.Type -notlike "Else*" ) {
-                Write-Verbose "Graph: foreach: the next node is not a else/elseif"
-                $string = $string + ";Edge -from " + $this.EndnodeId + " -to " + $EndIfNode.Next.Value + " -attributes @{label='LoopEnded'}"
-            }
-            
-        }
-
-        return $string
-    }
+class TryNode : node {
+    TryNode ($Parent,$Ast,$Depth,$position) : base ($Parent,$Ast,$Depth,$position) {}
 }
 
-Class DoUntilNode : node {
-    [string]$Type = "DoUntil"
-
-    DoUntilNode ([Ast]$e) : base($e) {
-        $this.Statement = "Do Until ( " + $e.Condition.extent.Text + " )"
-        $this.code = $e.body.extent.Text
-        $this.FindChildren($this.raw.Body.Statements, $this)
-    }
-
-    DoUntilNode ([Ast]$e, [node]$f) : base($e, $f) {
-        $this.Statement = "Do Until ( " + $e.Condition.extent.Text + " )"
-        $this.code = $e.body.extent.Text
-        $this.FindChildren($this.raw.Body.Statements, $this)
-    }
-
-    [string] graph ($UseDescription) {
-
-        ## On stocke le noeud de fin
-        $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
-        $string = ""
-        ## si on a pas de previous node, et niveau 0
-        If ( ($this.Depth -eq 1) -And ($null -eq $this.LinkedNodeId.Previous) ) {
-            write-Verbose "Graph: DoUntil: Drawing START NODE"
-            $string = ";Edge -from START -to " + $this.NodeId        
-        }
-
-        ## on cree les bases
-        # $string = "node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""|\*", '') + "';shape='"+$this.DefaultShape+"'}"
-        If ( $UseDescription ) {
-            $string = $string+";node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
+class CatchNode : node {
+    CatchNode ($Parent,$Ast,$Depth,$position) : base ($Parent,$Ast,$Depth,$position) {
+        If ( $this.RawAst.IsCatchAll ) {
+            $this.Statement = "Catch: All"
         } Else {
-            $string = $string+";node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""|\*", '') + "';shape='"+$this.DefaultShape+"'}"
-        }
-        $string = $string + ";node " + $this.EndNodeid + " -attributes @{Label='Is " + ($this.raw.Condition -replace "'|""|\*", '') + "';shape='diamond'}"
-        $string = $string + ";Edge -from " + $this.EndNodeid + " -to " + $this.nodeId + " -attributes @{Label='False, Loop'}"
-
-
-        ## si on a pas de next node, et niveau 1
-        If ( ($this.Depth -eq 1) -And ($null -eq $EndIfNode.Next) ) {
-            write-Verbose "Graph: DoUntil: Drawing END NODE"
-            $string = $string + ";Edge -from " + $this.EndNodeid + " -to END"
-        }
-
-        If ( $this.Children.count -gt 0 ) {
-            Write-Verbose "Graph: DoUntil: Graph DoUntil children"
-            $string = $string + ";Edge -from " + $this.NodeId + " -to " + $this.Children[0].NodeId
-            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.graph($UseDescription) }
-
-            ## Si le dernier noeud est de type LOOP
-            If ( $this.Children[-1].Type -in ("Foreach", "For", "While", "DoWhile", "DoUntil") ) {
-                $string = $string + ";Edge -from " + $this.Children[-1].LinkedBrothers.Last.Value + " -to " + $this.EndNodeid + " -attributes @{label='LoopEnded'}"
-            }
-            Else {
-                $string = $string + ";Edge -from " + $this.Children[-1].LinkedBrothers.Last.Value + " -to " + $this.EndNodeid
+            $this.Statement = "Catch: "
+            for ($i = 0; $i -lt $this.RawAST.CatchTypes.Count; $i++) {
+                if ( $i -eq 0 ) {
+                    $this.Statement = $this.Statement + "" + $this.RawAST.CatchTypes[$i].TypeName.Name
+                } Else {
+                    $this.Statement = $this.Statement + ", " + $this.RawAST.CatchTypes[$i].TypeName.Name
+                }
             }
         }
         
-        If ( $null -ne $EndIfNode.Next ) {
-            Write-Verbose "Graph: foreach: there is a node after the EndNodeId"
-            ## Si le noeud suivant est un else/elseif On ne fait rien, le edge doit être dessiner vers ENDIF, et il est fait par la methode Graph du IF
-            $NextNode = $this.parent.Children.where({$_.NodeID -eq $EndIfNode.Next.Value})
-            If ( $NextNode.Type -notlike "Else*" ) {
-                Write-Verbose "Graph: foreach: the next node is not a else/elseif"
-                $string = $string + ";Edge -from " + $this.EndnodeId + " -to " + $EndIfNode.Next.Value + " -attributes @{label='LoopEnded'}"
-            }
-            
-        }
-
-        return $string
     }
 }
 
-Class DoWhileNode : node {
-    [string]$Type = "DoWhile"
-
-    DoWhileNode ([Ast]$e) : base($e) {
-        $this.Statement = "Do While ( " + $e.Condition.extent.Text + " )"
-        $this.code = $e.body.extent.Text
-        $this.FindChildren($this.raw.Body.Statements, $this)
-    }
-
-    DoWhileNode ([Ast]$e, [node]$f) : base($e, $f) {
-        $this.Statement = "Do While ( " + $e.Condition.extent.Text + " )"
-        $this.code = $e.body.extent.Text
-        $this.FindChildren($this.raw.Body.Statements, $this)
-    }
-
-    [string] graph ($UseDescription) {
-
-        ## On stocke le noeud de fin
-        $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
-
-        $string = ""
-        ## si on a pas de previous node, et niveau 0
-        If ( ($this.Depth -eq 1) -And ($null -eq $this.LinkedNodeId.Previous) ) {
-            write-Verbose "Graph: DoWhile: Drawing START NODE"
-            $string = ";Edge -from START -to " + $this.NodeId        
-        }
-
-        ## on cree les bases
-        If ( $UseDescription ) {
-            $string = $string+";node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
-        } Else {
-            $string = $string+";node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""|\*", '') + "';shape='"+$this.DefaultShape+"'}"
-        }
-        $string = $string + ";node " + $this.EndNodeid + " -attributes @{Label='If " + ($this.raw.Condition -replace "'|""|\*", '') + "';shape='diamond'}"
-        $string = $string + ";Edge -from " + $this.EndNodeid + " -to " + $this.nodeId + " -attributes @{Label='True, Loop'}"
-
-        ## si on a pas de next node, et niveau 1
-        If ( ($this.Depth -eq 1) -And ($null -eq $EndIfNode.Next) ) {
-            write-Verbose "Graph: DoWhile: Drawing END NODE"
-            $string = $string + ";Edge -from " + $this.EndNodeid + " -to END"
-        }
-
-        If ( $this.Children.count -gt 0 ) {
-            Write-Verbose "Graph: DoWhile: Graph DoWhile children"
-            $string = $string + ";Edge -from " + $this.NodeId + " -to " + $this.Children[0].NodeId
-            foreach ( $child in $this.Children ) { $string = $string + ";" + $child.graph($UseDescription) }
-
-            ## Si le dernier noeud est de type LOOP
-            If ( $this.Children[-1].Type -in ("Foreach", "For", "While", "DoWhile", "DoUntil") ) {
-                $string = $string + ";Edge -from " + $this.Children[-1].LinkedBrothers.Last.Value + " -to " + $this.EndNodeid + " -attributes @{label='LoopEnded'}"
-            }
-            Else {
-                $string = $string + ";Edge -from " + $this.Children[-1].LinkedBrothers.Last.Value + " -to " + $this.EndNodeid
-            }
-        }
-
-        If ( $null -ne $EndIfNode.Next ) {
-            Write-Verbose "Graph: foreach: there is a node after the EndNodeId"
-            ## Si le noeud suivant est un else/elseif On ne fait rien, le edge doit être dessiner vers ENDIF, et il est fait par la methode Graph du IF
-            $NextNode = $this.parent.Children.where({$_.NodeID -eq $EndIfNode.Next.Value})
-            If ( $NextNode.Type -notlike "Else*" ) {
-                Write-Verbose "Graph: foreach: the next node is not a else/elseif"
-                $string = $string + ";Edge -from " + $this.EndnodeId + " -to " + $EndIfNode.Next.Value + " -attributes @{label='LoopEnded'}"
-            }
-            
-        }
-
-        return $string
+class FinallyNode : node {
+    FinallyNode ($Parent,$Ast,$Depth,$position) : base ($Parent,$Ast,$Depth,$position) {
+        $this.Statement = "Finally"
     }
 }
 
-Class BlockProcess : node {
-    [string]$Type = "BlockProcess"
-
-    BlockProcess () : base () {
-        $this.Statement = "ProcessBlock"
+class IfNode : node {
+    hidden [string] $shape = "diamond"
+    IfNode ($Parent,$Ast,$Depth,$position) : base ($Parent,$Ast,$Depth,$position) {
+        $this.Statement = "If: " + $this.rawast.Clauses.Item1[0].extent.text
     }
+}
 
-    BlockProcess ($f) : base ($f) {
-        $this.Statement = "ProcessBlock"
+class ElseIfNode : node {
+    hidden [string] $shape = "diamond"
+    ElseIfNode ($Parent,$Ast,$Depth,$position) : base ($Parent,$Ast,$Depth,$position) {
+        $this.Statement = "ElseIf: " + $this.rawast.parent.clauses.where({$_.item2 -eq $this.rawast}).item1.Extent.Text
     }
+}
 
-    [string] graph ($UseDescription) {
-        $string = ""
+class ElseNode : node {
+    ElseNode ($Parent,$Ast,$Depth,$position) : base ($Parent,$Ast,$Depth,$position) {}
+}
 
-        ## On stocke le noeud de fin
-        $EndIfNode = $this.LinkedBrothers.Find($this.EndNodeid)
-
-        ## si on a pas de previous node, et niveau 1
-        If ( ($this.Depth -eq 1) -And ($null -eq $this.LinkedNodeId.Previous) ) {
-            write-Verbose "Graph: If: Drawing START NODE"
-            $string = ";Edge -from START -to " + $this.NodeId        
-        }
-
-        ## si on a pas de next node, et niveau 1
-        If ( ($this.Depth -eq 1) -And ($null -eq $EndIfNode.Next) ) {
-            write-Verbose "Graph: DoWhile: Drawing END NODE"
-            $string = $string + ";Edge -from " + $this.EndNodeid + " -to END"
-        }
-
-        If ( $UseDescription ) {
-            $string = $string +";node " + $this.Nodeid + " -attributes @{Label='" + $this.Description + "';shape='"+$this.DefaultShape+"'}"    
-        } Else {
-            $string = $string +";node " + $this.Nodeid + " -attributes @{Label='" + ($this.Statement -replace "'|""|\*", '') + "';shape='"+$this.DefaultShape+"'}"
-        }
-
-        ## OK çA MARCHE PAS PARCEQUE BLOCKPROCESS N A PAS DE PARENT !
-        if ( $null -ne $this.LinkedNodeId.next ) {
-            $NextNode = $this.parent.Children.where({$_.NodeID -eq $this.LinkedNodeId.next.Value})
-            If ( $NextNode.Type -notlike "Else*" ) {
-                Write-Verbose "Graph: BlockProcess: the next node is not a else/elseif"
-                $string = $string + ";Edge -from " + $this.EndnodeId + " -to " + $this.LinkedNodeId.next.Value
-            }
-            
-        }
-
-        return $string
+class SwitchNode : node {
+    hidden [string] $shape = "diamond"
+    SwitchNode ($Parent,$Ast,$Depth,$position) : base ($Parent,$Ast,$Depth,$position) {
+        $this.Statement = "Switch: " + $this.rawast.Condition.Extent.Text
     }
+}
 
-    ## On cherche pas de description
-    [void]FindDescription() { }
-    [void]FindDescription([Bool]$Recurse) { }
-    [void]FindDescription([Bool]$Recurse, [String]$KeyWord) { }
+class SwitchCaseNode : node {
+    hidden [string] $shape = "diamond"
+    SwitchCaseNode ($Parent,$Ast,$Depth,$position) : base ($Parent,$Ast,$Depth,$position) {
+        $this.Statement = "Case: " + $this.rawast.parent.clauses.where({$_.item2 -eq $this.rawast}).item1.Extent.Text
+    }
+}
+
+class SwitchDefaultNode : node {
+    hidden [string] $shape = "diamond"
+    SwitchDefaultNode ($Parent,$Ast,$Depth,$position) : base ($Parent,$Ast,$Depth,$position) {
+        $this.Statement = "Default Case"
+    }
+}
+
+class Loops : node {
+    hidden [string] $shape = "parallelogram"
+    Loops ($Parent,$Ast,$Depth,$position) : base ($Parent,$Ast,$Depth,$position) {}
+}
+
+class ForeachNode : Loops {
+    hidden [string] $shape = "parallelogram"
+    ForeachNode ($Parent,$Ast,$Depth,$position) : base ($Parent,$Ast,$Depth,$position) {
+        ## Check label
+        If ( $this.RawAST.Label ) {
+            $this.Label = $this.RawAST.Label
+        }
+
+        ## Fill Statement
+        $this.Statement = "Foreach: " + $this.RawAST.Variable + " In " + $this.RawAST.Condition
+    } 
+}
+
+class ForNode : Loops {
+    hidden [string] $shape = "parallelogram"
+    ForNode ($Parent,$Ast,$Depth,$position) : base ($Parent,$Ast,$Depth,$position) {
+        ## Check label
+        If ( $this.RawAST.Label ) {
+            $this.Label = $this.RawAST.Label
+        }
+
+        ## Fill Statement
+        $this.Statement = "For: " + $this.RawAST.Initializer.extent.text + ", Do " + $this.RawAST.condition.Extent.text + ", Ititerate: " + $this.rawast.iterator.Extent.text
+    }
+}
+
+class WhileNode : Loops {
+    hidden [string] $shape = "parallelogram"
+    WhileNode ($Parent,$Ast,$Depth,$position) : base ($Parent,$Ast,$Depth,$position) {
+        ## Check label
+        If ( $this.RawAST.Label ) {
+            $this.Label = $this.RawAST.Label
+        }
+
+        ## Fill Statement
+        $this.Statement = "While: " + $this.RawAST.condition.Extent.text
+    }
+}
+
+class DoWhileNode : Loops {
+    hidden [string] $shape = "parallelogram"
+    DoWhileNode ($Parent,$Ast,$Depth,$position) : base ($Parent,$Ast,$Depth,$position) {
+        ## Check label
+        If ( $this.RawAST.Label ) {
+            $this.Label = $this.RawAST.Label
+        }
+
+        ## Fill Statement
+        $this.Statement = "While: " + $this.RawAST.condition.Extent.text
+    }
+}
+
+class DoUntilNode : Loops {
+    hidden [string] $shape = "parallelogram"
+    DoUntilNode ($Parent,$Ast,$Depth,$position) : base ($Parent,$Ast,$Depth,$position) {
+        ## Check label
+        If ( $this.RawAST.Label ) {
+            $this.Label = $this.RawAST.Label
+        }
+
+        ## Fill Statement
+        $this.Statement = "Until: " + $this.RawAST.condition.Extent.text
+    }
+}
+
+class ProcessBlock : node {
+    hidden [string] $shape = "box"
+    ProcessBlock ($Parent,$Depth,$position) : base ($Parent,$Depth,$position) {
+        $this.Statement = "Inner Code"
+    }
+}
+
+class ExitKeyWord : node {
+    hidden [string] $shape = "box"
+    ExitKeyWord ($Parent,$Ast,$Depth,$position) : base ($Parent,$Ast,$Depth,$position) {
+        $this.Statement = "Exit"
+    }
+}
+
+class BreakKeyWord : node {
+    hidden [string] $shape = "ellipse"
+    BreakKeyWord ($Parent,$Ast,$Depth,$position) : base ($Parent,$Ast,$Depth,$position) {
+        If ( $this.RawAST.Label ) {
+            $this.Label = $this.RawAST.Label
+        }
+
+        $this.Statement = "Break"
+    }
+}
+
+class ContinuekeyWord : node {
+    hidden [string] $shape = "ellipse"
+    ContinuekeyWord ($Parent,$Ast,$Depth,$position) : base ($Parent,$Ast,$Depth,$position) {
+        If ( $this.RawAST.Label ) {
+            $this.Label = $this.RawAST.Label
+        }
+
+        $this.Statement = "Continue"
+    }
 }
 function Find-FCNode {
     <#
@@ -1223,19 +1219,13 @@ function Find-FCNode {
     [CmdletBinding()]
     param (
         # Parameter help description
-        [Parameter(Mandatory=$True,
-        ValueFromPipelineByPropertyName=$True,Position=1)]
+        [Parameter(Mandatory=$False,
+        ValueFromPipelineByPropertyName=$True,Position=0,ParameterSetName="File")]
         [Alias("FullName")]
         [String[]]
         $File,
-        # Whether you want ton find associated node description
-        [Parameter(Mandatory=$False,ParameterSetName='Description')]
-        [Switch]
-        $FindDescription,
-        # The KeyWord representing the begining of your comment, default: Description
-        [Parameter(Mandatory=$False,ParameterSetName='Description')]
-        [String]
-        $KeyWord = $null
+        [Parameter(Mandatory=$False,ParameterSetName="ScriptBlock")]
+        [Scriptblock]$ScritpBlock
     )
     
     begin {
@@ -1243,17 +1233,18 @@ function Find-FCNode {
     }
     
     process {
-
-        $FileInfo = Get-Item $File
-        $x=[nodeutility]::ParseFile($FileInfo.FullName)
-
-        If ( $FindDescription ) {
-            If ( $KeyWord ) {
-                $X.FindDescription($True,$KeyWord)
-            } Else {
-                $X.FindDescription($True)
+        
+        Switch ($PsCmdlet.ParameterSetName) {
+            "File" {
+                $FileInfo = Get-Item $File
+                $x=[node]::ParseFile($FileInfo.FullName)
+            }
+            
+            "ScriptBlock" {
+                $x=[node]::ParseScriptBlock($ScritpBlock)
             }
         }
+        
         return ,$x
 
     }
@@ -1264,38 +1255,20 @@ function Find-FCNode {
 }
 
 function New-FCGraph {
-    <#
-    .SYNOPSIS
-        Draw a script flowchart
-    .DESCRIPTION
-        Draw a script flowchart
-    .EXAMPLE
-        PS C:\> New-FCGraph -Node $a -Name test
-        Draw a script flowchart. $a contains all the nodes present in a ps1 script file.
-    .EXAMPLE
-        PS C:\> Find-FCNode -File .\basic_example_1.ps1 -FindDescription | New-FCGraph -DescriptionAsLabe
-        Draw a script flowchart. Will user node(s) descirption as Label(s).
-    .INPUTS
-        Inputs (if any)
-    .OUTPUTS
-        Output (if any)
-    .NOTES
-        General notes
-    #>
     [CmdletBinding()]
     param (
         # Parameter help description
         [Parameter(Mandatory=$False,ValueFromPipeline=$True)]
         [Node[]]
         $Node,
-        # Name of the graph
-        [Parameter(Mandatory=$False)]
-        [String]
-        $Name="NewGraph",
-        # Parameter help description
-        [Parameter(Mandatory=$False)]
+        # DebugMode
+        [Parameter(Mandatory=$False,ParameterSetName="DebugMode")]
         [Switch]
-        $DescriptionAsLabel,
+        $DebugMode,
+        # StandardMode
+        [Parameter(Mandatory=$False,ParameterSetName="StandardMode")]
+        [Switch]
+        $StandardMode,
         # Passthru
         [Parameter(Mandatory=$False)]
         [Switch]
@@ -1308,19 +1281,18 @@ function New-FCGraph {
     
     process {
 
-        $GraphName = [System.Io.Path]::GetFileName(($node | Where-Object file -ne $null | Select-Object -first 1).File)
-
-        If ( $DescriptionAsLabel ) {
-            $string = $node.graph($True)
-        } Else {
-            $string=$node.graph($False)
+        If ( $DebugMode ) {
+            $mode = [GraphMode]::Debug
         }
 
-        $s = $string | out-string
-        $plop = [scriptblock]::Create($s).invoke()
-        $graph = graph "$Name" {
-                $plop
-        } -Attributes @{label="Script: $($GraphName.ToUpper())"}
+        If ( $StandardMode ) {
+            $mode = [GraphMode]::Standard
+        }
+
+        $x=[scriptblock]::Create($node.graph($mode)).invoke()
+        $graph = graph "pester" {
+            $x
+        } | Out-String
 
         If ( $PassThru ) {
             $graph
@@ -1334,55 +1306,3 @@ function New-FCGraph {
     }
 }
 
-function Set-FCNodeDescription {
-    <#
-    .SYNOPSIS
-        Set Description on nodes
-    .DESCRIPTION
-        Set Description on nodes
-    .EXAMPLE
-        PS C:\> Set-FCNodeDescription -Node $a -Recurse
-        Set description for If ( $a -eq 10 ): Describe Me!
-        Set description for Foreach ( $File in $CollectionsOfFiles ): stuff describing
-        Set description for ProcessBlock: something
-        Set description for Else From If ( $a -eq 10 ): !
-        Set description for ProcessBlock:
-
-
-        Type        : If
-        Statement   : If ( $a -eq 10 )
-        Description : Describe Me!
-        Children    : {ForeachNode, ElseNode}
-        Parent      :
-        Depth       : 1
-        File        : C:\Temp\FLowChart-test_new_base_parsing\Code\Tests\basic_example_1.ps1
-
-        The function will prompt you for description! 
-    .INPUTS
-        [node[]]
-    .OUTPUTS
-        [node[]]
-    .NOTES
-        General notes
-    #>
-    [CmdletBinding()]
-    param (
-        [Parameter(Mandatory=$True,ValueFromPipeline=$True)]
-        [Node[]]
-        $Node,
-        [Switch]$Recurse
-    )
-    
-    begin {
-        
-    }
-    
-    process {
-        $Node.SetDescription($Recurse)
-        return ,$Node
-    }
-    
-    end {
-        
-    }
-}
