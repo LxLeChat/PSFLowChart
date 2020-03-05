@@ -32,7 +32,7 @@ function Find-FCNode {
         [Alias("FullName")]
         [String[]]
         $File,
-        [Parameter(Mandatory=$False,ParameterSetName="ScriptBlock"]
+        [Parameter(Mandatory=$False,ParameterSetName="ScriptBlock")]
         [Scriptblock]$ScritpBlock
     )
     
@@ -49,7 +49,7 @@ function Find-FCNode {
             }
             
             "ScriptBlock" {
-                $x=[node]::ParseScriptBlock($ScriptBlock)
+                $x=[node]::ParseScriptBlock($ScritpBlock)
             }
         }
         
