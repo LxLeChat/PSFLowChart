@@ -544,26 +544,26 @@ class node {
 
                 { $PSItem.Gettype() -in [SwitchNode],[SwitchCaseNode],[SwitchDefaultNode],[TryNode],[CatchNode],[FinallyNode],[IfNode],[ElseIfNode],[ForeachNode],[ForNode],[WhileNode],[ProcessBlock],[BreakKeyWord],[ContinuekeyWord] } {
                     ##commun a tous ces type de noeuds
-                    $string = $string + "node '" + $this.id + "' -attributes @{Label='" + $this.GetType().Name + " " + $this.Id + "'};"
+                    $string = $string + "node '" + $this.id + "' -attributes @{Label='" + $this.GetType().Name + " " + $this.Id + "';Shape='"+$this.Shape+"'};"
                     
                     Switch ($this){
                         ([SwitchNode]) {
                             ## on créé un endnode id
-                            $string = $string + "node '" + $this.GetEndId() + "' -attributes @{Label='End Switch " + $this.Id + "'};"
+                            $string = $string + "node '" + $this.GetEndId() + "' -attributes @{Label='End Switch " + $this.Id + "';Shape='"+$this.Shape+"'};"
                             return $string
                         }
                         ([TryNode]) {
-                            $string = $string + "node '" + $this.GetEndId() + "' -attributes @{Label='End Try " + $this.Id + "'};"
+                            $string = $string + "node '" + $this.GetEndId() + "' -attributes @{Label='End Try " + $this.Id + "';Shape='"+$this.Shape+"'};"
                             return $string
                         }
                         ([IfNode]) {
                             ## on créé un endnode id
-                            $string = $string + "node '" + $this.GetEndId() + "' -attributes @{Label='End If " + $this.Id + "'};"
+                            $string = $string + "node '" + $this.GetEndId() + "' -attributes @{Label='End If " + $this.Id + "';Shape='"+$this.Shape+"'};"
                             return $string
                         }
                         ## Commun a ces types de loop
                         { $PSItem.Gettype() -in [ForeachNode],[ForNode],[WhileNode] } {
-                            $string = $string + "node '" + $this.GetEndId() + "' -attributes @{Label='Loop To " + $this.Id + "'};"
+                            $string = $string + "node '" + $this.GetEndId() + "' -attributes @{Label='Loop To " + $this.Id + "';Shape='"+$this.Shape+"'};"
                         }
 
                         ([ForeachNode]) {
@@ -593,14 +593,14 @@ class node {
                     Switch ($this) {
                         ([DoWhileNode]) {
                             ## on créé la boucle d iteration
-                            $string = $string + "node '" + $this.GetEndId() + "' -attributes @{Label='While " + $this.Id + "'};"
+                            $string = $string + "node '" + $this.GetEndId() + "' -attributes @{Label='While " + $this.Id + "';Shape='"+$this.Shape+"'};"
                             $String = $string + "edge -from " + $this.GetEndId() + " -to " + $this.id + " -attributes @{Label='While Statement'};"
                             return $string
                         }
             
                         ([DoUntilNode]) {
                             ## on créé la boucle d iteration
-                            $string = $string + "node '" + $this.GetEndId() + "' -attributes @{Label='Until " + $this.Id + "'};"
+                            $string = $string + "node '" + $this.GetEndId() + "' -attributes @{Label='Until " + $this.Id + "';Shape='"+$this.Shape+"'};"
                             $String = $string + "edge -from " + $this.GetEndId() + " -to " + $this.id + " -attributes @{Label='Until Statement'};"
                             return $string
                         }
@@ -616,7 +616,7 @@ class node {
 
                 { $PSItem.Gettype() -in [SwitchNode],[SwitchCaseNode],[SwitchDefaultNode],[FinallyNode],[IfNode],[ElseIfNode],[ForeachNode],[ForNode],[WhileNode],[ProcessBlock],[BreakKeyWord],[ContinuekeyWord] } {
                     ##commun a tous ces type de noeuds
-                    $string = $string + "node '" + $this.id + "' -attributes @{Label='" + $this.FormatStatement()+ "'};"
+                    $string = $string + "node '" + $this.id + "' -attributes @{Label='" + $this.FormatStatement()+ "';Shape='"+$this.Shape+"'};"
                     
                     Switch ($this){
                         ([SwitchNode]) {
@@ -662,7 +662,7 @@ class node {
                 }
 
                 { $PSItem.Gettype() -in [CatchNode] } {
-                    $string = $string + "node '" + $this.id + "' -attributes @{Label='"+$this.Statement+"'};"
+                    $string = $string + "node '" + $this.id + "' -attributes @{Label='"+$this.Statement+"';Shape='"+$this.Shape+"'};"
                     return $string
                 }
 
@@ -673,14 +673,14 @@ class node {
                     Switch ($this) {
                         ([DoWhileNode]) {
                             ## on créé la boucle d iteration
-                            $string = $string + "node '" + $this.GetEndId() + "' -attributes @{Label='" + $this.FormatStatement() + "'};"
+                            $string = $string + "node '" + $this.GetEndId() + "' -attributes @{Label='" + $this.FormatStatement() + "';Shape='"+$this.Shape+"'};"
                             $String = $string + "edge -from " + $this.GetEndId() + " -to " + $this.id + " -attributes @{Label='While'};"
                             return $string
                         }
             
                         ([DoUntilNode]) {
                             ## on créé la boucle d iteration
-                            $string = $string + "node '" + $this.GetEndId() + "' -attributes @{Label='Until " + $this.FormatStatement() + "'};"
+                            $string = $string + "node '" + $this.GetEndId() + "' -attributes @{Label='Until " + $this.FormatStatement() + "';Shape='"+$this.Shape+"'};"
                             $String = $string + "edge -from " + $this.GetEndId() + " -to " + $this.id + " -attributes @{Label='Until'};"
                             return $string
                         }
@@ -697,9 +697,9 @@ class node {
         Write-Verbose "$($this.Gettype().Name) --> GraphNode()"
         $string = $null
         If ( $Mode -eq "Debug") {
-            $string = "node '" + $this.Id + "' -attributes @{Label='"+ $this.GetType().Name + " " + $this.Id +"'};"
+            $string = "node '" + $this.Id + "' -attributes @{Label='"+ $this.GetType().Name + " " + $this.Id +"';Shape='"+$this.Shape+"'};"
         } else {
-            $string = "node '" + $this.Id + "' -attributes @{Label='"+$this.GetType().Name+"'};"
+            $string = "node '" + $this.Id + "' -attributes @{Label='"+$this.GetType().Name+"';Shape='"+$this.Shape+"'};"
         }
        
         return $string

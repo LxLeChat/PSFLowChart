@@ -16,7 +16,11 @@ function New-FCGraph {
         # Passthru
         [Parameter(Mandatory=$False)]
         [Switch]
-        $PassThru
+        $PassThru,
+        # HtmlLink for debug
+        [Parameter(Mandatory=$False)]
+        [Switch]
+        $HtmlLink
     )
     
     begin {
@@ -41,7 +45,11 @@ function New-FCGraph {
         If ( $PassThru ) {
             $graph
         } Else {
-            $graph | show-psgraph
+            If ( $HtmlLink ) {
+                $("https://dreampuf.github.io/GraphvizOnline/#" + ([System.Web.HttpUtility]::UrlEncode($graph)).replace("+","%20"))
+            } else {
+                $graph | show-psgraph
+            }
         }
     }
     
