@@ -1,18 +1,15 @@
 function New-FCGraph {
     [CmdletBinding()]
     param (
-        # Parameter help description
-        [Parameter(Mandatory=$False,ValueFromPipeline=$True)]
+        # Array of nodes
+        [Parameter(Mandatory=$True,ValueFromPipeline=$True)]
         [Node[]]
         $Node,
-        # DebugMode
-        [Parameter(Mandatory=$False,ParameterSetName="DebugMode")]
-        [Switch]
-        $DebugMode,
-        # StandardMode
-        [Parameter(Mandatory=$False,ParameterSetName="StandardMode")]
-        [Switch]
-        $StandardMode,
+        ## Define GraphMode
+        [Parameter(Mandatory=$False)]
+        [String]
+        [ValidateSet('Debug','Standard','Description')]
+        $GraphMode,
         # Passthru
         [Parameter(Mandatory=$False)]
         [Switch]
@@ -29,16 +26,15 @@ function New-FCGraph {
     
     process {
 
-        If ( $DebugMode ) {
-            $mode = [GraphMode]::Debug
-        }
-
-        If ( $StandardMode ) {
-            $mode = [GraphMode]::Standard
+        Switch ($GraphMode) {
+            "Debug" { $mode = [GraphMode]::Debug }
+            "Standard" { $mode = [GraphMode]::Standard }
+            "Description" { $mode = [GraphMode]::Description }
+            Default { $mode = [GraphMode]::Standard }
         }
 
         $x=[scriptblock]::Create($node.graph($mode)).invoke()
-        $graph = graph "pester" {
+        $graph = graph 'plop' {
             $x
         } | Out-String
 

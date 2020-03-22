@@ -45,11 +45,11 @@ function Find-FCNode {
         Switch ($PsCmdlet.ParameterSetName) {
             "File" {
                 $FileInfo = Get-Item $File
-                $x=[node]::ParseFile($FileInfo.FullName)
+                $x=[Utility]::ParseFile($FileInfo.FullName)
             }
             
             "ScriptBlock" {
-                $x=[node]::ParseScriptBlock($ScritpBlock)
+                $x=[Utility]::ParseScriptBlock($ScritpBlock)
             }
         }
         
