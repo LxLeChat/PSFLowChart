@@ -8,7 +8,7 @@ on:
   push:
     branches:
       - master
-      - new
+        - New
   pull_request:
     branches: [ master ]
 
