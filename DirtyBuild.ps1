@@ -7,3 +7,4 @@ Foreach ( $File in (Gci .\PSflowchart\Code\Functions -Filter *.ps1) ) {
 }
 
 Import-Module .\PSFlowChart
+"cool"
