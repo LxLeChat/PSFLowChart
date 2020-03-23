@@ -29,5 +29,4 @@ jobs:
     - name: Run a multi-line script
       shell: pwsh
       run: |
-        $ErrorActionPreference = 'Stop'
-        Try { .\dirtybuild.ps1 } Catch { $_ }
+        Try { .\dirtybuild.ps1 } Catch { ${_} }
