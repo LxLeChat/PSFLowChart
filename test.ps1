@@ -1,2 +1,2 @@
 write-host "lol"
-install-module Pester -Force
+"lol" > prout.ps1
