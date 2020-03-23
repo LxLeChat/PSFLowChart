@@ -30,3 +30,4 @@ jobs:
       shell: pwsh
       run: |
         Get-Content .\dirtybuild.ps1
+        .\dirtybuild.ps1
