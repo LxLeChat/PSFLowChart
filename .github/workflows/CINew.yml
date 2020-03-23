@@ -29,4 +29,4 @@ jobs:
     - name: Run a multi-line script
       shell: pwsh
       run: |
-        Get-Content $GITHUB_WORKSPACE\PsFlowChart\Code\Functions\Find-FCNode.ps1
+        Get-Content .\PsFlowChart\Code\Functions\Find-FCNode.ps1
