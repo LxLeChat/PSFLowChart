@@ -29,4 +29,4 @@ jobs:
     - name: Run a multi-line script
       shell: pwsh
       run: |
-        .\dirtybuild.ps1
+        Get-Content .\dirtybuild.ps1
