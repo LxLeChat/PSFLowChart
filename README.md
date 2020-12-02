@@ -1,5 +1,7 @@
 ## update
 Currently Working on a new version ...  !
+Go visit the new repo, as i wont maintain this one anymore. https://github.com/LxLeChat/FlowChartCore
+the new repo is csharp based. So the cmdlets are faster. and more works as been done on the new version.
 
 # PSFLowChart
 
